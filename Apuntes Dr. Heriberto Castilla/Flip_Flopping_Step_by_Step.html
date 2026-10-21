@@ -1,0 +1,619 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Flip-Flopping, Step by Step</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a lab-bench instrument. Belt plot is the main stage (left), the pdf of the current mu and the readout sit beside it (right); controls run along the top. */
+:root{
+  --bg:#f6f7f9; --panel:#ffffff; --ink:#1b2730; --ink2:#55626d; --muted:#8b96a0; --rule:#dfe3e8; --grid:#eceff3;
+  --acc:#2e6da8; --acc-soft:rgba(46,109,168,.16); --lost:#c8574f; --lost-soft:rgba(200,87,79,.22);
+  --meas:#b4632a; --hit:#2e6da8; --faint:#c3cbd3;
+  --f-disp:"Newsreader", "Iowan Old Style", Georgia, serif;
+  --f-body:"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono:"IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#12171c; --panel:#192027; --ink:#e7ecf0; --ink2:#a9b4bd; --muted:#7c8893; --rule:#2b343d; --grid:#222a32;
+  --acc:#6fa8dc; --acc-soft:rgba(111,168,220,.20); --lost:#e07b72; --lost-soft:rgba(224,123,114,.25);
+  --meas:#e3a062; --hit:#6fa8dc; --faint:#46525d; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#12171c; --panel:#192027; --ink:#e7ecf0; --ink2:#a9b4bd; --muted:#7c8893; --rule:#2b343d; --grid:#222a32;
+  --acc:#6fa8dc; --acc-soft:rgba(111,168,220,.20); --lost:#e07b72; --lost-soft:rgba(224,123,114,.25);
+  --meas:#e3a062; --hit:#6fa8dc; --faint:#46525d; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.5;margin:0}
+.wrap{max-width:1180px;margin:0 auto;padding-block:20px 40px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+header{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 18px;margin-bottom:14px}
+h1{font-family:var(--f-disp);font-weight:600;font-size:1.9rem;margin:0;letter-spacing:-.01em;text-wrap:balance}
+.sub{color:var(--ink2);margin:0;max-width:68ch}
+.eq{font-family:var(--f-mono);font-size:.85rem;color:var(--ink2)}
+math{font-family:"Latin Modern Math","STIX Two Math","Cambria Math",var(--f-disp),serif}
+.gmath-in{font-size:1.05em;color:var(--ink)}
+.formula{margin:4px 0 10px;padding:8px 10px;border-radius:6px;background:var(--bg);overflow-x:auto}
+.gmath{font-size:1.25rem;color:var(--ink);margin:0}
+.controls{display:flex;flex-wrap:wrap;gap:10px 22px;align-items:center;background:var(--panel);border:1px solid var(--rule);border-radius:8px;padding:12px 14px;margin-bottom:14px}
+.group{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.lab{font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:600}
+.lab .sym,.lab.sym{text-transform:none;letter-spacing:0;font-size:.95rem}
+.seg{display:inline-flex;border:1px solid var(--rule);border-radius:6px;overflow:hidden}
+.seg button{border:0;background:transparent;color:var(--ink2);font:inherit;font-size:.88rem;padding:6px 10px;cursor:pointer}
+.seg button+button{border-left:1px solid var(--rule)}
+.seg button[aria-pressed="true"]{background:var(--acc);color:var(--panel)}
+.btn{border:1px solid var(--rule);background:var(--panel);color:var(--ink);font:inherit;font-size:.88rem;padding:6px 12px;border-radius:6px;cursor:pointer}
+.btn.primary{background:var(--acc);border-color:var(--acc);color:var(--panel);font-weight:500}
+.btn:focus-visible,.seg button:focus-visible,input:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.grid{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:14px}
+@media (max-width:860px){.grid{grid-template-columns:minmax(0,1fr)}}
+.card{background:var(--panel);border:1px solid var(--rule);border-radius:8px;padding:12px 14px;min-width:0}
+.card h2{font-family:var(--f-disp);font-weight:500;font-size:1.15rem;margin:0 0 2px}
+.card .hint{color:var(--muted);font-size:.82rem;margin:0 0 8px}
+canvas{display:block;width:100%;touch-action:none}
+#belt{aspect-ratio:1/0.92}
+#pdf{aspect-ratio:1/0.7}
+.slider{display:grid;grid-template-columns:auto minmax(0,1fr) 4.2em;gap:10px;align-items:center;margin-top:10px}
+.slider output{font-family:var(--f-mono);font-variant-numeric:tabular-nums;text-align:right}
+input[type=range]{width:100%;accent-color:var(--acc)}
+#x0row input{accent-color:var(--meas)}
+.readout{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;margin-top:12px;font-size:.92rem}
+.readout dt{color:var(--ink2)}
+.readout dd{margin:0;font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.result{margin-top:10px;padding:10px 12px;border-radius:6px;background:var(--acc-soft);font-size:.95rem}
+.result.empty{background:var(--lost-soft)}
+.steps{margin:14px 0 0;padding-left:1.3em;color:var(--ink2);font-size:.9rem;max-width:75ch}
+.steps li{margin:3px 0}
+.steps li.on{color:var(--ink)}
+.steps li.on::marker{color:var(--acc);font-weight:600}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:.8rem;color:var(--ink2);margin-top:6px}
+.sw{display:inline-block;width:14px;height:8px;border-radius:2px;margin-right:6px;vertical-align:middle}
+footer{color:var(--muted);font-size:.8rem;margin-top:18px;max-width:80ch}
+.isec{margin-top:14px}
+.slider[hidden]{display:none}
+.icontrols{display:flex;flex-wrap:wrap;gap:10px 22px;align-items:center;margin:4px 0 10px}
+.igrid{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:18px}
+@media (max-width:860px){.igrid{grid-template-columns:minmax(0,1fr)}}
+#ipdf{aspect-ratio:1/0.5}
+#icdf{aspect-ratio:1/0.36;margin-top:6px}
+.ifml math{font-size:1.15rem;color:var(--ink);margin:2px 0}
+.ival{color:var(--acc);font-weight:600}
+.fnote{font-size:.8rem;color:var(--muted);margin:4px 0 0}
+.tailbar{position:relative;display:flex;height:16px;border-radius:4px;overflow:visible;margin-top:12px;background:var(--grid)}
+.tailbar span{height:100%}
+#tb-l,#tb-r{background:var(--lost-soft)}
+#tb-c{background:var(--acc)}
+#tb-l{border-radius:4px 0 0 4px}#tb-r{border-radius:0 4px 4px 0}
+.tailtxt{display:flex;justify-content:space-between;gap:8px;font-size:.82rem;color:var(--ink2);margin-top:4px;font-variant-numeric:tabular-nums}
+.tailtxt b{font-family:var(--f-mono);font-weight:500;color:var(--ink)}
+
+:root{--two:#b4632a;--clip:#2f8a5b;--empty:#7a5aa6;--two-soft:rgba(180,99,42,.16);--clip-soft:rgba(47,138,91,.16);--empty-soft:rgba(122,90,166,.16)}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--two:#e3a062;--clip:#5cc08a;--empty:#a98be0;--two-soft:rgba(227,160,98,.2);--clip-soft:rgba(92,192,138,.2);--empty-soft:rgba(169,139,224,.22)}}
+:root[data-theme="dark"]{--two:#e3a062;--clip:#5cc08a;--empty:#a98be0;--two-soft:rgba(227,160,98,.2);--clip-soft:rgba(92,192,138,.2);--empty-soft:rgba(169,139,224,.22)}
+#belt{aspect-ratio:1/0.95}
+#cat{aspect-ratio:1/1.05}
+.result.two{background:var(--two-soft)}.result.clip{background:var(--clip-soft)}.result.empty{background:var(--empty-soft)}
+.kinds{display:grid;gap:6px;margin:12px 0 0;padding:0;list-style:none;font-size:.88rem;color:var(--ink2)}
+.kinds li{display:grid;grid-template-columns:14px 1fr;gap:8px;align-items:start;padding:4px 6px;border-radius:5px}
+.kinds li.on{background:var(--bg);color:var(--ink)}
+.kinds .sw{width:14px;height:14px;margin:3px 0 0;border-radius:3px}
+.slider[hidden]{display:none}
+
+#belt{aspect-ratio:1/0.95}
+#pdf{aspect-ratio:1/0.7}
+#cov{aspect-ratio:1/0.6}
+.story{background:var(--panel);border:1px solid var(--rule);border-radius:8px;padding:12px 16px;margin-bottom:14px}
+.stepnav{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 8px;padding:0;list-style:none}
+.stepnav button{border:1px solid var(--rule);background:transparent;color:var(--ink2);font:inherit;font-size:.82rem;padding:4px 10px;border-radius:999px;cursor:pointer}
+.stepnav button[aria-current="step"]{background:var(--acc);border-color:var(--acc);color:var(--panel)}
+.story h2{font-family:var(--f-disp);font-weight:500;font-size:1.25rem;margin:2px 0 4px}
+.story p{margin:0;max-width:95ch;color:var(--ink)}
+.flow{display:grid;gap:6px;margin:4px 0 6px;font-size:.9rem}
+.node{border:1px solid var(--rule);border-radius:6px;padding:6px 10px;color:var(--ink2);background:var(--panel);transition:background .25s,color .25s,border-color .25s}
+.node.on{color:var(--ink);border-color:var(--ink2);background:var(--bg)}
+.node.on.g{background:var(--clip-soft);border-color:var(--clip)}
+.node.on.o{background:var(--two-soft);border-color:var(--two)}
+.frow{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.6fr);gap:6px;align-items:stretch}
+.arrow{color:var(--muted);font-size:.8rem;padding-left:10px}
+.quote{margin-top:8px;padding:10px 12px;border-radius:6px;background:var(--bg);font-size:.95rem}
+.quote.g{background:var(--clip-soft)}.quote.o{background:var(--two-soft)}
+.nums{display:grid;grid-template-columns:auto 1fr;gap:3px 12px;font-size:.88rem;margin-top:8px}
+.nums dt{color:var(--ink2)}.nums dd{margin:0;font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+[hidden]{display:none!important}
+.mct{width:100%;border-collapse:collapse;font-size:.86rem;margin-top:10px;font-variant-numeric:tabular-nums}
+.mct th,.mct td{padding:4px 6px;text-align:right;border-bottom:1px solid var(--rule)}
+.mct th:first-child,.mct td:first-child{text-align:left;color:var(--ink2)}
+.mct th{font-weight:600;font-size:.8rem}.mct th.g{color:var(--clip)}.mct th.o{color:var(--two)}
+.mct td{font-family:var(--f-mono)}
+.recent td:first-child{font-family:var(--f-mono);color:var(--ink)}
+.recent tr.diff td{background:var(--lost-soft)}
+.ok{color:var(--clip)}.no{color:var(--lost);font-weight:600}
+.diffs{margin:10px 0 0;padding-left:1.1em;font-size:.86rem;color:var(--ink2)}
+.diffs li{margin:3px 0}.diffs b{font-family:var(--f-mono);color:var(--lost)}
+</style>
+<div class="wrap">
+  <header>
+    <h1>Flip-Flopping, Step by Step</h1>
+    <p class="sub">Physicist X chooses between an upper limit and a central interval after seeing the data. One Gaussian measurement with σ = 1, μ ≥ 0, 90% C.L., as in Sec. III.A of Feldman and Cousins (1998).</p>
+  </header>
+
+  <div class="story">
+    <ol class="stepnav" id="nav" aria-label="Steps"></ol>
+    <h2 id="st-title">—</h2>
+    <p id="st-text">—</p>
+    <div class="controls" style="border:0;padding:10px 0 0;margin:0;background:transparent">
+      <div class="group">
+        <button type="button" class="btn" id="back">← Back</button>
+        <button type="button" class="btn primary" id="next">Next step →</button>
+        <button type="button" class="btn" id="play">Play this step</button>
+      </div>
+      <div class="group"><label class="lab" for="speed">Speed</label><input type="range" id="speed" min="0.25" max="2" step="0.25" value="0.75" style="width:110px"><output id="speedv" class="eq">0.75×</output></div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <section class="card" aria-label="The belts">
+      <h2 id="belt-title">The belts: μ against x</h2>
+      <div id="twobelts">
+        <canvas id="bU" aria-label="Upper-limit belt" style="aspect-ratio:1/0.62"></canvas>
+        <canvas id="bC" aria-label="Central belt" style="aspect-ratio:1/0.62;margin-top:10px"></canvas>
+      </div>
+      <canvas id="belt" aria-label="Confidence belts"></canvas>
+      <div class="slider" id="x0row"><label class="lab sym" for="x0">x₀</label><input type="range" id="x0" min="-3" max="6" step="0.01" value="1.5"><output id="x0v">1.50</output></div>
+      <div class="slider" id="mtrow"><label class="lab" for="mt">true <span class="sym">μ</span></label><input type="range" id="mt" min="0" max="6" step="0.01" value="2"><output id="mtv">2.00</output></div>
+    </section>
+
+    <section class="card" aria-label="Decision and coverage">
+      <div id="rulesbox">
+        <h2>The two ordering rules at μ = <span id="r-mu">2.00</span></h2>
+        <p class="hint">Same pdf P(x|μ), same 90% inside. The rules differ only in where they leave out the other 10%.</p>
+        <canvas id="r2" aria-label="Upper-limit rule on the pdf" style="aspect-ratio:1/0.42"></canvas>
+        <canvas id="r1" aria-label="Central rule on the pdf" style="aspect-ratio:1/0.42;margin-top:6px"></canvas>
+      </div>
+      <div id="flowbox">
+        <h2>X's decision</h2>
+        <div class="flow">
+          <div class="node" id="n-meas">Measure x₀ = <b id="n-x0">—</b></div>
+          <div class="frow"><div class="node" id="n-q0">Is x₀ &lt; 0?</div><div class="node" id="n-zero">yes: replace x₀ by 0</div></div>
+          <div class="frow"><div class="node" id="n-q3">Is x₀ &lt; 3?</div>
+            <div style="display:grid;gap:6px"><div class="node g" id="n-up">yes: 90% upper limit, μ ≤ x₀ + 1.28 (green belt)</div>
+            <div class="node o" id="n-cen">no: 90% central interval, x₀ ± 1.64 (orange belt)</div></div></div>
+        </div>
+        <div class="quote" id="quote">—</div>
+      </div>
+      <div id="mcbox">
+        <h2>Repeated experiments, true μ = 2</h2>
+        <div class="group" style="margin:4px 0 8px;display:flex;flex-wrap:wrap;gap:8px">
+          <button type="button" class="btn" id="mc1">Draw 1</button>
+          <button type="button" class="btn" id="mc10">Draw 10</button>
+          <button type="button" class="btn primary" id="mcrun">Run</button>
+          <button type="button" class="btn" id="mcreset">Reset</button>
+        </div>
+        <canvas id="mc" aria-label="Drawn measurements under the pdf" style="aspect-ratio:1/0.55"></canvas>
+        <table class="mct" id="mct">
+          <thead><tr><th></th><th class="g">always upper limit</th><th class="o">always central</th><th>X (switches)</th></tr></thead>
+          <tbody>
+            <tr><td>experiments</td><td id="t-n1">0</td><td id="t-n2">0</td><td id="t-n3">0</td></tr>
+            <tr><td>interval contains μ = 2</td><td id="t-c1">—</td><td id="t-c2">—</td><td id="t-c3">—</td></tr>
+          </tbody>
+        </table>
+        <ul class="diffs">
+          <li><b id="d-up">0</b> draws where the upper-limit rule contains 2 but X does not: all have x &gt; 3.64 (X switched to central, and x₀ − 1.64 &gt; 2).</li>
+          <li><b id="d-ce">0</b> draws where the central rule contains 2 but X does not: all have 0.36 ≤ x &lt; 0.72 (X kept the upper limit, and x₀ + 1.28 &lt; 2).</li>
+          <li><b id="d-gain">0</b> draws where X contains 2 and both others do not.</li>
+        </ul>
+        <table class="mct recent" id="recent"><thead><tr><th>x</th><th class="g">upper</th><th class="o">central</th><th>X</th></tr></thead><tbody></tbody></table>
+      </div>
+      <div id="pdfbox">
+        <h2>P(x | μ) for the true μ</h2>
+        <p class="hint">Shaded: the x for which X's interval contains the true μ. Green where he uses the upper-limit rule, orange where he uses the central rule, red: x for which he misses it.</p>
+        <canvas id="pdf" aria-label="pdf with the covered region"></canvas>
+        <h3 class="sub2" style="font-family:var(--f-disp);font-weight:500;font-size:1.02rem;margin:14px 0 2px">Each 90% split at x = 3</h3>
+        <p class="hint" style="margin:0">Left part of each bar: experiments with x &lt; 3 in which the interval contains μ. Right part: experiments with x ≥ 3. A rule reaches 90% only with both parts. X takes the left part of the upper-limit rule and the right part of the central rule.</p>
+        <canvas id="split" aria-label="Coverage split at x = 3" style="aspect-ratio:1/0.46;margin-top:6px"></canvas>
+        <dl class="nums">
+          <dt>X's interval contains μ for x in</dt><dd id="c-set">—</dd>
+          <dt>probability (coverage)</dt><dd id="c-p">—</dd>
+          <dt>upper-limit rule alone accepts</dt><dd id="c-up">—</dd>
+          <dt>central rule alone accepts</dt><dd id="c-ce">—</dd>
+        </dl>
+      </div>
+      <div id="covbox">
+        <h2 style="margin-top:14px">Coverage for every true μ</h2>
+        <canvas id="cov" aria-label="Coverage against true mu"></canvas>
+      </div>
+    </section>
+  </div>
+
+  <footer>Exact Gaussian quantiles (1.28 and 1.64 for 90%); coverage by numerical integration of P(x|μ). Flip-flopping as in Sec. III.A and Fig. 4 of G. J. Feldman and R. D. Cousins, Phys. Rev. D 57 (1998) 3873.</footer>
+</div>
+<script>
+(()=>{
+const ZU=1.2815515655, ZC=1.6448536270, FLIP=3, X=[-3,7], M=[0,6.4];
+const gpdf=u=>Math.exp(-0.5*u*u)/Math.sqrt(2*Math.PI);
+function erfc(x){const z=Math.abs(x),t=1/(1+0.5*z),r=t*Math.exp(-z*z-1.26551223+t*(1.00002368+t*(0.37409196+t*(0.09678418+t*(-0.18628806+t*(0.27886807+t*(-1.13520398+t*(1.48851587+t*(-0.82215223+t*0.17087277)))))))));return x>=0?r:2-r;}
+const Phi=z=>z===Infinity?1:z===-Infinity?0:0.5*erfc(-z/Math.SQRT2);
+// what X quotes
+function quote(x0){ if(x0<FLIP)return{k:"up",lo:0,hi:Math.max(x0,0)+ZU,zero:x0<0}; return{k:"ce",lo:x0-ZC,hi:x0+ZC}; }
+// the x for which X's interval contains mu: runs [a,b] with the piece's belt
+function covered(m){
+  const runs=[];
+  // x < 3: contains mu iff mu <= max(x,0)+ZU  <=>  x >= m-ZU (or any x<0 if m<=ZU)
+  const a1=m<=ZU?-Infinity:m-ZU; if(a1<FLIP-0.005)runs.push([a1,FLIP,"up"]);
+  // x >= 3: contains mu iff x-ZC <= m <= x+ZC  <=>  x in [m-ZC, m+ZC]
+  const a2=Math.max(FLIP,m-ZC),b2=m+ZC; if(b2>a2)runs.push([a2,b2,"ce"]);
+  let p=0;runs.forEach(([a,b])=>p+=Phi(b-m)-Phi(a-m));return{runs,p};
+}
+function setText(C){if(!C.runs.length)return"none";const a=C.runs[0][0],b=C.runs[C.runs.length-1][1];
+  const tot="["+f2(a)+", "+f2(b)+"]";if(C.runs.length===1)return tot+(C.runs[0][2]==="up"?" (green belt)":" (orange belt)");
+  return tot+" = green ["+f2(a)+", 3) + orange [3, "+f2(b)+"]";}
+const COV=(()=>{const mu=[],c=[];for(let m=0;m<=6.0001;m+=0.01){mu.push(m);c.push(covered(m).p);}return{mu,c};})();
+const S={step:1,x0:1.5,mt:2,covUpTo:6};
+const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+function setup(cv){const r=cv.getBoundingClientRect(),dpr=window.devicePixelRatio||1;cv.width=Math.round(r.width*dpr);cv.height=Math.round(r.height*dpr);const g=cv.getContext("2d");g.setTransform(dpr,0,0,dpr,0,0);return{g,w:r.width,h:r.height};}
+const neg=s=>s.replace(/-/g,"−");
+const f2=v=>v===-Infinity?"−∞":v===Infinity?"+∞":neg((Math.abs(v)<0.005?0:v).toFixed(2));
+function axes(g,w,h,pad,xr,yr,xl,yl,xt,yt,yf){
+  const ink=css("--ink"),ink2=css("--ink2"),grid=css("--grid"),rule=css("--rule");
+  const sx=v=>pad.l+(v-xr[0])/(xr[1]-xr[0])*(w-pad.l-pad.r), sy=v=>h-pad.b-(v-yr[0])/(yr[1]-yr[0])*(h-pad.t-pad.b);
+  g.font="12px "+css("--f-mono");g.lineWidth=1;
+  xt.forEach(v=>{g.strokeStyle=grid;g.beginPath();g.moveTo(sx(v),sy(yr[0]));g.lineTo(sx(v),sy(yr[1]));g.stroke();g.fillStyle=ink2;g.textAlign="center";g.textBaseline="top";g.fillText(neg(String(v)),sx(v),h-pad.b+6);});
+  yt.forEach(v=>{g.strokeStyle=grid;g.beginPath();g.moveTo(sx(xr[0]),sy(v));g.lineTo(sx(xr[1]),sy(v));g.stroke();g.fillStyle=ink2;g.textAlign="right";g.textBaseline="middle";g.fillText(yf?yf(v):String(v),pad.l-8,sy(v));});
+  g.strokeStyle=rule;g.beginPath();g.moveTo(pad.l,sy(yr[0]));g.lineTo(w-pad.r,sy(yr[0]));g.moveTo(pad.l,sy(yr[0]));g.lineTo(pad.l,sy(yr[1]));g.stroke();
+  g.font="13px "+css("--f-body");g.fillStyle=ink;g.textAlign="center";g.textBaseline="bottom";g.fillText(xl,(pad.l+w-pad.r)/2,h-2);
+  g.save();g.translate(12,(pad.t+h-pad.b)/2);g.rotate(-Math.PI/2);g.textBaseline="middle";g.fillText(yl,0,0);g.restore();
+  return{sx,sy};
+}
+const XT=[-3,-2,-1,0,1,2,3,4,5,6,7];
+// ---------- steps
+const STEPS=[
+ {t:"1 · Two ordering rules, two correct belts",p:"A Neyman belt needs an ordering rule: for each μ, which 90% of the x values go into the acceptance interval. Two different rules give two different belts. Central rule (orange, Eq. 2.6): leave out 5% below and 5% above, so μ − 1.64 ≤ x ≤ μ + 1.64. Upper-limit rule (green, Eq. 2.5): leave out all 10% below, so x ≥ μ − 1.28. Each rule is applied in the same way at every μ (move the true μ), so each belt, used for every experiment, covers 90%."},
+ {t:"2 · X chooses the ordering rule after seeing x₀",p:"Physicist X measures x₀ and only then chooses which ordering rule to use: if x₀ < 3 the upper-limit rule (green belt), if x₀ ≥ 3 the central rule (orange belt). A negative x₀ he replaces by 0. Follow the decision box and the two plots as x₀ moves: the belt X reads is highlighted, the other is not used. At x₀ = 3 the quoted interval jumps from μ ≤ 4.28 to 1.36 ≤ μ ≤ 4.64."},
+ {t:"3 · X mixes the two ordering rules",p:"Put his choices together: the upper-limit rule left of x₀ = 3, the central rule right of it, a flat piece μ ≤ 1.28 for negative x₀. The dashed parts are never used. This is not a belt built with one ordering rule: nobody chose, for each μ, an acceptance interval holding 90%. Whether it covers 90% has to be checked."},
+ {t:"4 · Repeat the experiment at μ = 2",p:"Coverage is a frequency: fix the true μ, repeat the experiment many times, and count how often the quoted interval contains μ. Here the true μ is 2. Each draw is one experiment, x taken from P(x | μ = 2). Three physicists analyse the same draws: one always uses the upper-limit rule, one always the central rule, and X, who switches at x = 3. Watch which draws X gets wrong that the others get right."},
+ {t:"5 · Coverage at one true value, μ = 2",p:"Fix the true μ = 2 and ask: for which measured x does X's interval contain 2? Along the horizontal line, x from 0.72 to 3 (green belt) and from 3 to 3.64 (orange belt). The probability of that is the area of P(x | μ = 2) over [0.72, 3.64]: 85%. Its lower end 0.72 is the cut of the upper-limit rule, which leaves 10% below; its upper end 3.64 is the cut of the central rule, which leaves 5% above. Neither rule would leave out 15%: each leaves out 10%. Mixing the rules loses 10% + 5%."},
+ {t:"6 · Coverage for every true μ",p:"Repeat for every μ. Below μ ≈ 1.3 X covers more than 90%. For 1.36 < μ < 4.28 he covers only 85%. Above μ = 4.64 he is back at 90%. His intervals are labelled 90% C.L., but the procedure that produced them does not have 90% coverage: the label is wrong for a whole range of μ."}
+];
+const nav=document.getElementById("nav");
+STEPS.forEach((s,i)=>{const li=document.createElement("li");const b=document.createElement("button");b.type="button";b.textContent=String(i+1);b.setAttribute("aria-label","Step "+(i+1));b.addEventListener("click",()=>go(i+1));li.appendChild(b);nav.appendChild(li);});
+// ---------- the belt panel
+const belt=document.getElementById("belt"),pdfc=document.getElementById("pdf"),covc=document.getElementById("cov");
+let bmap=null;
+function drawBelt(){
+  const {g,w,h}=setup(belt);g.clearRect(0,0,w,h);
+  const st=S.step,pad={l:44,r:12,t:st>=2?30:12,b:40};
+  const {sx,sy}=axes(g,w,h,pad,X,M,"measured quantity x","parameter μ",XT,[0,1,2,3,4,5,6]);bmap={sx,sy,pad,w,h};
+  const grn=css("--clip"),org=css("--two"),gs=css("--clip-soft"),os=css("--two-soft"),ink=css("--ink"),ink2=css("--ink2"),red=css("--lost");
+  const poly=(pts,col)=>{g.beginPath();pts.forEach(([x,y],i)=>i?g.lineTo(sx(x),sy(y)):g.moveTo(sx(x),sy(y)));g.closePath();g.fillStyle=col;g.fill();};
+  const line=(x1,y1,x2,y2,col,dash,lw)=>{g.strokeStyle=col;g.lineWidth=lw;g.setLineDash(dash?[5,4]:[]);g.beginPath();g.moveTo(sx(x1),sy(y1));g.lineTo(sx(x2),sy(y2));g.stroke();g.setLineDash([]);};
+  const T=M[1];
+  g.save();g.beginPath();g.rect(pad.l,pad.t,w-pad.l-pad.r,h-pad.t-pad.b);g.clip();
+  const used=st>=3, q=quote(S.x0), useUp=q.k==="up";
+  // shading
+  if(!used){
+    const ag=st===2&&!useUp?0.3:(st===1?0.6:1), ao=st===2&&useUp?0.3:(st===1?0.6:1);
+    g.globalAlpha=ag;poly([[-ZU,0],[T-ZU,T],[X[1]+1,T],[X[1]+1,0]],gs);g.globalAlpha=ao;poly([[-ZC,0],[T-ZC,T],[T+ZC,T],[ZC,0]],os);g.globalAlpha=1;
+  } else {
+    poly([[X[0],0],[X[0],ZU],[0,ZU],[FLIP,FLIP+ZU],[FLIP,0]],gs);
+    poly([[FLIP,FLIP-ZC],[FLIP,FLIP+ZC],[T-ZC,T],[X[1]+1,T],[X[1]+1,X[1]+1-ZC]],os);
+  }
+  // edges
+  if(!used){
+    const lg=st===2&&!useUp?1:2.2, lo=st===2&&useUp?1:2.2;
+    line(-ZU,0,T-ZU,T,grn,false,lg);
+    line(-ZC,0,T-ZC,T,org,false,lo);line(ZC,0,T+ZC,T,org,false,lo);
+  } else {
+    line(X[0],ZU,0,ZU,grn,false,2.4);line(0,ZU,FLIP,FLIP+ZU,grn,false,2.4);line(FLIP,FLIP+ZU,T-ZU,T,grn,true,1.1);line(-ZU,0,0,ZU,grn,true,1.1);
+    line(-ZC,0,FLIP,FLIP+ZC,org,true,1.1);line(FLIP,FLIP+ZC,T-ZC,T,org,false,2.4);
+    line(ZC,0,FLIP,FLIP-ZC,org,true,1.1);line(FLIP,FLIP-ZC,T+ZC,T,org,false,2.4);
+    line(FLIP,0,FLIP,T,red,true,1.3);
+  }
+  g.restore();
+  // labels
+  g.font="600 11.5px "+css("--f-body");g.textBaseline="bottom";
+  if(st===1){g.fillStyle=grn;g.textAlign="left";g.fillText("upper-limit rule: x ≥ μ − 1.28",sx(-2.8),sy(5.6));
+    g.fillStyle=org;g.textAlign="right";g.fillText("central rule: μ − 1.64 ≤ x ≤ μ + 1.64",sx(6.9),sy(0.3));}
+  else{g.fillStyle=grn;g.textAlign="left";g.fillText(used?"upper-limit rule, used for x₀ < 3":"green belt: upper-limit rule",sx(-2.8),sy(5.6));
+    g.fillStyle=org;g.textAlign="right";g.fillText(used?"central rule, used for x₀ ≥ 3":"orange belt: central rule",sx(6.9),sy(0.3));}
+  if(used){g.font="11px "+css("--f-mono");g.fillStyle=red;g.textAlign="right";g.fillText("switch at x₀ = 3",sx(FLIP)-5,sy(5.1));g.fillStyle=grn;g.textAlign="center";g.fillText("x₀ < 0 taken as 0",sx(-1.5),sy(ZU)-3);}
+  if(st===1){const m=S.mt;
+    g.strokeStyle=ink2;g.lineWidth=0.8;g.setLineDash([2,3]);g.beginPath();g.moveTo(pad.l,sy(m));g.lineTo(w-pad.r,sy(m));g.stroke();g.setLineDash([]);
+    g.lineCap="butt";g.strokeStyle=grn;g.lineWidth=5;g.beginPath();g.moveTo(sx(m-ZU),sy(m)-4);g.lineTo(w-pad.r,sy(m)-4);g.stroke();
+    g.strokeStyle=org;g.beginPath();g.moveTo(sx(m-ZC),sy(m)+4);g.lineTo(sx(m+ZC),sy(m)+4);g.stroke();
+    g.font="11px "+css("--f-mono");g.textBaseline="bottom";g.textAlign="left";g.fillStyle=grn;g.fillText("["+f2(m-ZU)+", ∞)",sx(m-ZU),sy(m)-9);
+    g.textBaseline="top";g.fillStyle=org;g.fillText("["+f2(m-ZC)+", "+f2(m+ZC)+"]",sx(m-ZC),sy(m)+9);
+    g.fillStyle=ink;g.textAlign="left";g.textBaseline="bottom";g.fillText("μ = "+m.toFixed(2),pad.l+6,sy(m)-3);}
+  // decision strip
+  if(st>=2){const R=[[X[0],0,"--clip","x₀ < 0 → 0, upper limit"],[0,FLIP,"--clip","upper limit"],[FLIP,X[1],"--two","central interval"]];
+    R.forEach(([a,b,c,l],i)=>{const xa=sx(a),xb=sx(b);g.fillStyle=css(c);g.globalAlpha=i===0?0.65:0.9;g.fillRect(xa,6,xb-xa,18);g.globalAlpha=1;
+      g.font="600 11px "+css("--f-body");g.fillStyle=css("--panel");g.textAlign="center";g.textBaseline="middle";if(g.measureText(l).width<xb-xa-6)g.fillText(l,(xa+xb)/2,15);});}
+  // measurement line and quoted interval (steps 2, 3)
+  if(st===4){g.strokeStyle=ink2;g.lineWidth=0.9;g.setLineDash([2,3]);g.beginPath();g.moveTo(pad.l,sy(MT));g.lineTo(w-pad.r,sy(MT));g.stroke();g.setLineDash([]);
+    g.font="12px "+css("--f-mono");g.fillStyle=ink;g.textAlign="left";g.textBaseline="bottom";g.fillText("true μ = 2",pad.l+14,sy(MT)-3);}
+  if((st===2||st===3)||(st===4&&MC.last)){const col=q.k==="up"?grn:org;
+    g.strokeStyle=col;g.lineWidth=1.6;g.setLineDash([6,4]);g.beginPath();g.moveTo(sx(S.x0),sy(0));g.lineTo(sx(S.x0),sy(T));g.stroke();g.setLineDash([]);
+    g.font="12px "+css("--f-mono");g.fillStyle=col;g.textAlign=S.x0>5.3?"right":"left";g.textBaseline="top";g.fillText("x₀ = "+f2(S.x0),sx(S.x0)+(S.x0>5.3?-5:5),pad.t+3);
+    const hi=Math.min(q.hi,T);g.strokeStyle=col;g.lineWidth=5;g.beginPath();g.moveTo(sx(S.x0),sy(q.lo));g.lineTo(sx(S.x0),sy(hi));g.stroke();
+    g.lineWidth=7;g.beginPath();g.moveTo(pad.l+4,sy(q.lo));g.lineTo(pad.l+4,sy(hi));g.stroke();
+    g.lineWidth=1;g.setLineDash([2,3]);[q.lo,q.hi].forEach(v=>{if(v<=T&&v>0.01){g.beginPath();g.moveTo(pad.l,sy(v));g.lineTo(sx(S.x0),sy(v));g.stroke();}});g.setLineDash([]);
+    g.fillStyle=col;g.textAlign="left";g.textBaseline="bottom";g.fillText("μ₂ = "+q.hi.toFixed(2),pad.l+12,sy(q.hi)-2);if(q.k==="ce")g.fillText("μ₁ = "+q.lo.toFixed(2),pad.l+12,sy(q.lo)-2);
+    if(st===4){const c=q.lo<=MT&&MT<=q.hi;g.font="600 13px "+css("--f-body");g.fillStyle=c?css("--acc"):css("--lost");g.textAlign=S.x0>4?"right":"left";g.textBaseline="middle";
+      g.fillText(c?"✓ contains μ = 2":"✗ misses μ = 2",sx(S.x0)+(S.x0>4?-10:10),sy(MT)+16);}}
+  // true mu line (steps 4, 5)
+  if(st>=5){const C=covered(S.mt),m=S.mt;
+    g.strokeStyle=ink2;g.lineWidth=0.8;g.setLineDash([2,3]);g.beginPath();g.moveTo(pad.l,sy(m));g.lineTo(w-pad.r,sy(m));g.stroke();g.setLineDash([]);
+    C.runs.forEach(([a,b,k])=>{g.strokeStyle=k==="up"?grn:org;g.lineWidth=6;g.beginPath();g.moveTo(sx(Math.max(a,X[0])),sy(m));g.lineTo(sx(Math.min(b,X[1])),sy(m));g.stroke();
+      g.fillStyle=ink;[a,b].forEach(v=>{if(isFinite(v)&&v>X[0]&&v<X[1]){g.beginPath();g.arc(sx(v),sy(m),3.5,0,2*Math.PI);g.fill();}});});
+    const cap="true μ = "+m.toFixed(2)+": X's interval contains it for x in ["+f2(C.runs[0][0])+", "+f2(C.runs[C.runs.length-1][1])+"]  →  "+(C.p*100).toFixed(1)+"%";
+    g.font="12px "+css("--f-mono");const tw=g.measureText(cap).width,ty=m>5.5?sy(m)+22:sy(m)-6;
+    g.fillStyle=css("--panel");g.globalAlpha=0.9;g.fillRect(w-pad.r-10-tw,ty-15,tw+8,18);g.globalAlpha=1;g.fillStyle=ink;g.textAlign="right";g.textBaseline="bottom";g.fillText(cap,w-pad.r-6,ty);}
+}
+// ---------- step 1: the two rules drawn on the pdf
+function drawRule(cv,lo,hi,col,soft,title,tails){
+  const {g,w,h}=setup(cv);g.clearRect(0,0,w,h);const m=S.mt,xr=[m-4,m+4],pad={l:40,r:10,t:22,b:30};
+  const {sx,sy}=axes(g,w,h,pad,xr,[0,0.45],"","",[Math.ceil(xr[0]),Math.ceil(xr[0])+2,Math.ceil(xr[0])+4,Math.ceil(xr[0])+6],[0,0.4]);
+  const fill=(a,b,c)=>{a=Math.max(a,xr[0]);b=Math.min(b,xr[1]);if(b<=a)return;g.beginPath();g.moveTo(sx(a),sy(0));for(let x=a;x<b;x+=0.01)g.lineTo(sx(x),sy(gpdf(x-m)));g.lineTo(sx(b),sy(gpdf(b-m)));g.lineTo(sx(b),sy(0));g.closePath();g.fillStyle=c;g.fill();};
+  fill(xr[0],lo,css("--lost-soft"));fill(lo,hi,soft);fill(hi,xr[1],css("--lost-soft"));
+  g.beginPath();for(let x=xr[0];x<=xr[1];x+=0.01){x===xr[0]?g.moveTo(sx(x),sy(gpdf(x-m))):g.lineTo(sx(x),sy(gpdf(x-m)));}g.strokeStyle=css("--ink");g.lineWidth=1.4;g.stroke();
+  g.strokeStyle=col;g.lineWidth=4;g.beginPath();g.moveTo(sx(Math.max(lo,xr[0])),sy(0)-2);g.lineTo(sx(Math.min(hi,xr[1])),sy(0)-2);g.stroke();
+  g.font="600 12px "+css("--f-body");g.fillStyle=col;g.textAlign="left";g.textBaseline="top";g.fillText(title,pad.l,3);
+  g.font="12px "+css("--f-mono");g.textAlign="center";g.textBaseline="middle";g.fillStyle=col;g.fillText("90%",sx(m),sy(0.15));
+  g.fillStyle=css("--lost");tails.forEach(([x,t])=>g.fillText(t,sx(x),sy(gpdf(x-m)+0.05)));
+}
+function drawRules(){const m=S.mt;document.getElementById("r-mu").textContent=m.toFixed(2);
+  drawRule(document.getElementById("r1"),m-ZC,m+ZC,css("--two"),css("--two-soft"),"Central rule: 5% below, 5% above → [μ − 1.64, μ + 1.64]",[[m-2.4,"5%"],[m+2.4,"5%"]]);
+  drawRule(document.getElementById("r2"),m-ZU,Infinity,css("--clip"),css("--clip-soft"),"Upper-limit rule: all 10% below → [μ − 1.28, ∞)",[[m-2.2,"10%"]]);}
+// ---------- steps 1-2: each belt in its own plot
+const bU=document.getElementById("bU"),bC=document.getElementById("bC");let smap=null;
+function drawSingle(cv,kind){
+  const {g,w,h}=setup(cv);g.clearRect(0,0,w,h);
+  const st=S.step,pad={l:44,r:12,t:st===2?30:24,b:36},T=M[1];
+  const {sx,sy}=axes(g,w,h,pad,X,M,"measured quantity x","μ",XT,[0,2,4,6]);smap={sx,sy,pad,w,h};
+  const up=kind==="up",col=css(up?"--clip":"--two"),soft=css(up?"--clip-soft":"--two-soft"),ink=css("--ink"),ink2=css("--ink2");
+  const q=quote(S.x0),used=st===1||(q.k===kind);
+  g.save();g.beginPath();g.rect(pad.l,pad.t,w-pad.l-pad.r,h-pad.t-pad.b);g.clip();
+  g.globalAlpha=used?1:0.35;
+  g.beginPath();
+  if(up){[[-ZU,0],[T-ZU,T],[X[1]+1,T],[X[1]+1,0]].forEach(([x,y],i)=>i?g.lineTo(sx(x),sy(y)):g.moveTo(sx(x),sy(y)));}
+  else{[[-ZC,0],[T-ZC,T],[T+ZC,T],[ZC,0]].forEach(([x,y],i)=>i?g.lineTo(sx(x),sy(y)):g.moveTo(sx(x),sy(y)));}
+  g.closePath();g.fillStyle=soft;g.fill();
+  g.strokeStyle=col;g.lineWidth=2.2;g.beginPath();g.moveTo(sx(up?-ZU:-ZC),sy(0));g.lineTo(sx(T-(up?ZU:ZC)),sy(T));g.stroke();
+  if(!up){g.beginPath();g.moveTo(sx(ZC),sy(0));g.lineTo(sx(T+ZC),sy(T));g.stroke();}
+  g.globalAlpha=1;g.restore();
+  // title inside the plot
+  g.font="600 12px "+css("--f-body");g.fillStyle=col;g.textAlign="left";g.textBaseline="top";
+  g.fillText(up?"Upper-limit rule (Eq. 2.5): acceptance x ≥ μ − 1.28":"Central rule (Eq. 2.6): acceptance μ − 1.64 ≤ x ≤ μ + 1.64",pad.l+6,pad.t+4);
+  if(st===1){const m=S.mt,a=m-(up?ZU:ZC),b=up?X[1]:m+ZC;
+    g.strokeStyle=ink2;g.lineWidth=0.8;g.setLineDash([2,3]);g.beginPath();g.moveTo(pad.l,sy(m));g.lineTo(w-pad.r,sy(m));g.stroke();g.setLineDash([]);
+    g.strokeStyle=col;g.lineWidth=5;g.lineCap="butt";g.beginPath();g.moveTo(sx(a),sy(m));g.lineTo(Math.min(sx(b),w-pad.r),sy(m));g.stroke();
+    g.font="11px "+css("--f-mono");g.fillStyle=col;g.textAlign="left";g.textBaseline="bottom";g.fillText((up?"[":"[")+f2(a)+", "+(up?"∞)":f2(b)+"]")+"  holds 90%",sx(a),sy(m)-5);
+    g.fillStyle=ink;g.textBaseline="bottom";g.fillText("μ = "+m.toFixed(2),pad.l+6,sy(m)-3);}
+  if(st===2){
+    // strip: where X uses this belt
+    const ua=up?X[0]:FLIP,ub=up?FLIP:X[1];
+    g.fillStyle=css("--grid");g.fillRect(pad.l,6,w-pad.l-pad.r,18);
+    g.fillStyle=col;g.fillRect(sx(ua),6,sx(ub)-sx(ua),18);
+    g.font="600 11px "+css("--f-body");g.fillStyle=css("--panel");g.textAlign="center";g.textBaseline="middle";
+    g.fillText(up?"X uses this belt for x₀ < 3":"X uses this belt for x₀ ≥ 3",(sx(ua)+sx(ub))/2,15);
+    const xr=up&&S.x0<0?0:S.x0;
+    g.strokeStyle=used?col:ink2;g.lineWidth=1.5;g.setLineDash([6,4]);g.beginPath();g.moveTo(sx(S.x0),sy(0));g.lineTo(sx(S.x0),sy(T));g.stroke();g.setLineDash([]);
+    if(used){
+      if(xr!==S.x0){g.strokeStyle=col;g.lineWidth=1.2;g.beginPath();g.moveTo(sx(xr),sy(0));g.lineTo(sx(xr),sy(T));g.stroke();
+        g.font="11px "+css("--f-mono");g.fillStyle=col;g.textAlign="left";g.textBaseline="top";g.fillText("x₀ replaced by 0",sx(xr)+4,sy(T*0.55));}
+      const hi=Math.min(q.hi,T);g.strokeStyle=col;g.lineWidth=5;g.beginPath();g.moveTo(sx(xr),sy(q.lo));g.lineTo(sx(xr),sy(hi));g.stroke();
+      g.lineWidth=7;g.beginPath();g.moveTo(pad.l+4,sy(q.lo));g.lineTo(pad.l+4,sy(hi));g.stroke();
+      g.lineWidth=1;g.setLineDash([2,3]);[q.lo,q.hi].forEach(v=>{if(v<=T&&v>0.01){g.beginPath();g.moveTo(pad.l,sy(v));g.lineTo(sx(xr),sy(v));g.stroke();}});g.setLineDash([]);
+      g.font="11px "+css("--f-mono");g.fillStyle=col;g.textAlign="left";g.textBaseline="bottom";
+      g.fillText("μ₂ = "+q.hi.toFixed(2),pad.l+12,sy(q.hi)-2);if(!up)g.fillText("μ₁ = "+q.lo.toFixed(2),pad.l+12,sy(q.lo)-2);
+    } else {
+      g.font="12px "+css("--f-body");g.fillStyle=ink2;g.textAlign=S.x0>3.5?"right":"left";g.textBaseline="middle";
+      g.fillText("not used for x₀ = "+f2(S.x0),sx(S.x0)+(S.x0>3.5?-8:8),sy(T*0.45));}
+    g.font="12px "+css("--f-mono");g.fillStyle=used?col:ink2;g.textAlign=S.x0>5.3?"right":"left";g.textBaseline="top";g.fillText("x₀ = "+f2(S.x0),sx(S.x0)+(S.x0>5.3?-5:5),pad.t+22);
+  }
+}
+// ---------- step 4: repeated experiments at mu = 2
+const MT=2;
+const vUp=x=>x>=MT-ZU, vCe=x=>Math.abs(x-MT)<=ZC, vX=x=>{const q=quote(x);return q.lo<=MT&&MT<=q.hi;};
+const MC={x:[],y:[],n:0,c:[0,0,0],dUp:0,dCe:0,gain:0,last:null};
+function gauss(){let u=0,v=0;while(u===0)u=Math.random();while(v===0)v=Math.random();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);}
+function draw1(){const x=MT+gauss(),a=vUp(x),b=vCe(x),c=vX(x);
+  MC.n++;if(a)MC.c[0]++;if(b)MC.c[1]++;if(c)MC.c[2]++;if(a&&!c)MC.dUp++;if(b&&!c)MC.dCe++;if(c&&!a&&!b)MC.gain++;
+  MC.x.push(x);MC.y.push(Math.random());if(MC.x.length>4000){MC.x.shift();MC.y.shift();}
+  MC.last={x,a,b,c};MC.recent=(MC.recent||[]);MC.recent.unshift(MC.last);if(MC.recent.length>8)MC.recent.pop();
+  S.x0=x;}
+function mcReset(){MC.x=[];MC.y=[];MC.n=0;MC.c=[0,0,0];MC.dUp=0;MC.dCe=0;MC.gain=0;MC.last=null;MC.recent=[];S.x0=MT;}
+function drawMC(){
+  const cv=document.getElementById("mc"),{g,w,h}=setup(cv);g.clearRect(0,0,w,h);
+  const xr=[-2,6],pad={l:44,r:10,t:22,b:36};
+  const {sx,sy}=axes(g,w,h,pad,xr,[0,0.45],"measured x","P(x | μ = 2)",[-2,-1,0,1,2,3,4,5,6],[0,0.2,0.4]);
+  // the two regions where X loses compared with a single rule
+  const band=(a,b,lab)=>{g.fillStyle=css("--lost-soft");g.fillRect(sx(a),pad.t,sx(b)-sx(a),h-pad.t-pad.b);
+    g.font="10px "+css("--f-mono");g.fillStyle=css("--lost");g.textAlign="center";g.textBaseline="top";g.fillText(lab,(sx(a)+sx(Math.min(b,xr[1])))/2,4);};
+  band(MT-ZC,MT-ZU,"only central ✓");band(MT+ZC,xr[1],"only upper ✓");
+  g.strokeStyle=css("--lost");g.lineWidth=1;g.setLineDash([3,3]);g.beginPath();g.moveTo(sx(FLIP),pad.t);g.lineTo(sx(FLIP),sy(0));g.stroke();g.setLineDash([]);
+  // dots under the curve: x drawn, height uniform under the pdf, so their density traces P(x|mu)
+  for(let i=0;i<MC.x.length;i++){const x=MC.x[i];if(x<xr[0]||x>xr[1])continue;const c=vX(x);
+    g.fillStyle=c?css("--acc"):css("--lost");g.globalAlpha=MC.x.length>800?0.55:0.85;g.beginPath();g.arc(sx(x),sy(MC.y[i]*gpdf(x-MT)),MC.x.length>800?1.6:2.6,0,2*Math.PI);g.fill();}
+  g.globalAlpha=1;
+  g.beginPath();for(let x=xr[0];x<=xr[1];x+=0.01){x===xr[0]?g.moveTo(sx(x),sy(gpdf(x-MT))):g.lineTo(sx(x),sy(gpdf(x-MT)));}g.strokeStyle=css("--ink");g.lineWidth=1.5;g.stroke();
+  if(MC.last){const x=MC.last.x;g.strokeStyle=css("--ink");g.lineWidth=2;g.beginPath();g.moveTo(sx(x),sy(0));g.lineTo(sx(x),sy(0.43));g.stroke();}
+  g.font="11px "+css("--f-mono");g.textAlign="left";g.textBaseline="bottom";g.fillStyle=css("--acc");g.fillText("● X contains 2",pad.l+4,sy(0.43));g.fillStyle=css("--lost");g.fillText("● X misses 2",pad.l+4,sy(0.38));
+  // table
+  const set=(id,v)=>document.getElementById(id).textContent=v;
+  ["t-n1","t-n2","t-n3"].forEach(id=>set(id,MC.n));
+  MC.c.forEach((c,i)=>set("t-c"+(i+1),MC.n?c+"  ("+(100*c/MC.n).toFixed(1)+"%)":"—"));
+  set("d-up",MC.dUp);set("d-ce",MC.dCe);set("d-gain",MC.gain);
+  const tb=document.querySelector("#recent tbody");tb.innerHTML="";
+  (MC.recent||[]).forEach(r=>{const tr=document.createElement("tr");if(r.c!==r.a||r.c!==r.b)tr.className="diff";
+    const m=v=>'<span class="'+(v?"ok":"no")+'">'+(v?"✓":"✗")+'</span>';
+    tr.innerHTML="<td>"+f2(r.x)+"</td><td>"+m(r.a)+"</td><td>"+m(r.b)+"</td><td>"+m(r.c)+"</td>";tb.appendChild(tr);});
+}
+let mcRaf=null;
+function mcStop(){if(mcRaf){cancelAnimationFrame(mcRaf);mcRaf=null;}document.getElementById("mcrun").textContent="Run";}
+function mcRun(){if(mcRaf){mcStop();return;}document.getElementById("mcrun").textContent="Pause";let last=null,acc=0;
+  const tick=t=>{if(last===null)last=t;const dt=Math.min(0.1,(t-last)/1000);last=t;
+    const rate=(MC.n<30?3:MC.n<120?20:MC.n<1000?200:800)*spd();acc+=rate*dt;while(acc>=1){draw1();acc-=1;}
+    redraw();if(MC.n>=20000){mcStop();return;}mcRaf=requestAnimationFrame(tick);};
+  mcRaf=requestAnimationFrame(tick);}
+document.getElementById("mc1").addEventListener("click",()=>{mcStop();draw1();redraw();});
+document.getElementById("mc10").addEventListener("click",()=>{mcStop();for(let i=0;i<10;i++)draw1();redraw();});
+document.getElementById("mcrun").addEventListener("click",mcRun);
+document.getElementById("mcreset").addEventListener("click",()=>{mcStop();mcReset();redraw();});
+// ---------- decision box
+function flow(){
+  const q=quote(S.x0),on=(id,v)=>document.getElementById(id).classList.toggle("on",v&&S.step>1);
+  document.getElementById("n-x0").textContent=f2(S.x0);
+  on("n-meas",true);on("n-q0",true);on("n-zero",S.x0<0);on("n-q3",true);on("n-up",q.k==="up");on("n-cen",q.k==="ce");
+  const qe=document.getElementById("quote");
+  if(S.step===1){document.getElementById("n-x0").textContent="…";qe.className="quote";qe.textContent="This is physicist X's rule. In step 2 he applies it to his measurement.";return;}
+  qe.className="quote "+(q.k==="up"?"g":"o");
+  qe.textContent=q.k==="up"?"X quotes μ ≤ "+q.hi.toFixed(2)+" at 90% C.L."+(q.zero?" (x₀ replaced by 0)":""):"X quotes "+q.lo.toFixed(2)+" ≤ μ ≤ "+q.hi.toFixed(2)+" at 90% C.L.";
+}
+// ---------- pdf for the true mu
+function drawPdf(){
+  const {g,w,h}=setup(pdfc);g.clearRect(0,0,w,h);
+  const m=S.mt,pad={l:52,r:12,t:12,b:40},xr=[-2,8];
+  const {sx,sy}=axes(g,w,h,pad,xr,[0,0.62],"measured quantity x","P(x | μ)",[-2,-1,0,1,2,3,4,5,6,7,8],[0,0.2,0.4]);
+  const C=covered(m);
+  const fill=(a,b,col)=>{a=Math.max(a,xr[0]);b=Math.min(b,xr[1]);if(b<=a)return;g.beginPath();g.moveTo(sx(a),sy(0));for(let x=a;x<b;x+=0.01)g.lineTo(sx(x),sy(gpdf(x-m)));g.lineTo(sx(b),sy(gpdf(b-m)));g.lineTo(sx(b),sy(0));g.closePath();g.fillStyle=col;g.fill();};
+  // uncovered pieces in red, covered pieces in the colour of the belt they come from
+  let cur=xr[0];C.runs.forEach(([a,b,k])=>{fill(cur,a,css("--lost-soft"));fill(a,b,css(k==="up"?"--clip-soft":"--two-soft"));cur=Math.max(cur,b);});fill(cur,xr[1],css("--lost-soft"));
+  g.beginPath();for(let x=xr[0];x<=xr[1];x+=0.01){x===xr[0]?g.moveTo(sx(x),sy(gpdf(x-m))):g.lineTo(sx(x),sy(gpdf(x-m)));}g.strokeStyle=css("--ink");g.lineWidth=1.6;g.stroke();
+  // switch line
+  g.strokeStyle=css("--lost");g.lineWidth=1.1;g.setLineDash([3,3]);g.beginPath();g.moveTo(sx(FLIP),sy(0));g.lineTo(sx(FLIP),sy(0.44));g.stroke();g.setLineDash([]);
+  // three bars above the curve: what each belt alone accepts, and what X's procedure accepts
+  const bar=(y,a,b,col,lab)=>{const xa=sx(Math.max(a,xr[0])),xb=sx(Math.min(b,xr[1]));g.strokeStyle=col;g.lineWidth=4;g.beginPath();g.moveTo(xa,sy(y));g.lineTo(xb,sy(y));g.stroke();
+    g.font="11px "+css("--f-mono");g.fillStyle=col;g.textAlign="left";g.textBaseline="bottom";g.fillText(lab,Math.min(xa,w-pad.r-g.measureText(lab).width),sy(y)-3);};
+  bar(0.585,m-ZU,99,css("--clip"),"upper-limit rule alone: ["+f2(m-ZU)+", ∞)  90%");
+  bar(0.525,m-ZC,m+ZC,css("--two"),"central rule alone: ["+f2(m-ZC)+", "+f2(m+ZC)+"]  90%");
+  const a0=C.runs[0][0],b0=C.runs[C.runs.length-1][1];
+  bar(0.465,a0,b0,css("--ink"),"X, rules mixed: ["+f2(a0)+", "+f2(b0)+"]  "+(C.p*100).toFixed(1)+"%");
+  const lostL=Phi(a0-m),lostR=1-Phi(b0-m);
+  g.font="13px "+css("--f-mono");g.textAlign="center";g.textBaseline="middle";g.fillStyle=css("--ink");
+  g.fillText((C.p*100).toFixed(1)+"%",sx(Math.min(Math.max(m,a0+0.6),b0-0.6)),sy(0.12));
+  g.fillStyle=css("--lost");
+  const lk=C.runs[0][2],rk=C.runs[C.runs.length-1][2];
+  if(lostL>0.0005){const xl=Math.max(a0-1.4,xr[0]+0.6);g.fillText((lostL*100).toFixed(1)+"%",sx(xl),sy(gpdf(xl-m)+0.07));g.font="10px "+css("--f-mono");g.fillText(lk==="up"?"upper-limit cut":"central cut",sx(xl),sy(gpdf(xl-m)+0.035));g.font="13px "+css("--f-mono");}
+  if(lostR>0.0005){const xq=Math.min(b0+1.4,xr[1]-0.6);g.fillText((lostR*100).toFixed(1)+"%",sx(xq),sy(gpdf(xq-m)+0.07));g.font="10px "+css("--f-mono");g.fillText(rk==="up"?"upper-limit cut":"central cut",sx(xq),sy(gpdf(xq-m)+0.035));g.font="13px "+css("--f-mono");}
+  const set=document.getElementById.bind(document);
+  set("c-set").textContent=setText(C);
+  set("c-p").textContent=(C.p*100).toFixed(1)+"%";
+  set("c-up").textContent="["+f2(m-ZU)+", +∞): 90%";
+  set("c-ce").textContent="["+f2(Math.max(m-ZC,-99))+", "+f2(m+ZC)+"]: 90%";
+  set("mtv").textContent=m.toFixed(2);
+}
+// ---------- each rule's coverage split at x = 3
+function drawSplit(){
+  const cv=document.getElementById("split"),{g,w,h}=setup(cv);g.clearRect(0,0,w,h);
+  const m=S.mt,P=(a,b)=>Math.max(0,Phi(b-m)-Phi(a-m));
+  const u1=P(m-ZU,FLIP),u2=P(Math.max(FLIP,m-ZU),Infinity);
+  const c1=P(m-ZC,Math.min(FLIP,m+ZC)),c2=P(Math.max(FLIP,m-ZC),m+ZC);
+  const C=covered(m);let x1=0,x2=0;C.runs.forEach(([a,b,k])=>{if(k==="up")x1+=P(a,b);else x2+=P(a,b);});
+  const L=118,R=62,top=8,rh=(h-top-30)/3,sx=v=>L+v*(w-L-R);
+  const grn=css("--clip"),org=css("--two"),ink=css("--ink"),ink2=css("--ink2");
+  // grid at 0, 50, 85, 90, 100
+  g.font="11px "+css("--f-mono");g.textAlign="center";g.textBaseline="top";
+  [0,0.25,0.5,0.75,1].forEach(v=>{g.strokeStyle=css("--grid");g.lineWidth=1;g.beginPath();g.moveTo(sx(v),top);g.lineTo(sx(v),h-24);g.stroke();g.fillStyle=ink2;g.fillText(Math.round(v*100)+"%",sx(v),h-20);});
+  const rows=[["upper-limit rule",[[u1,grn,true],[u2,grn,false]]],["central rule",[[c1,org,false],[c2,org,true]]],["X (switches)",[[x1,grn,true],[x2,org,true]]]];
+  rows.forEach(([lab,parts],i)=>{const y=top+rh*i+rh*0.18,bh=rh*0.62;let acc=0;
+    g.font=(i===2?"600 ":"")+"12px "+css("--f-body");g.fillStyle=ink;g.textAlign="right";g.textBaseline="middle";g.fillText(lab,L-8,y+bh/2);
+    parts.forEach(([v,col,kept],j)=>{const xa=sx(acc),xb=sx(acc+v);acc+=v;if(v<=0.0005)return;
+      g.globalAlpha=(i<2&&!kept)?0.28:0.9;g.fillStyle=col;g.fillRect(xa,y,xb-xa,bh);g.globalAlpha=1;
+      if(i<2&&kept){g.strokeStyle=ink;g.lineWidth=2;g.strokeRect(xa+1,y+1,xb-xa-2,bh-2);}
+      g.font="11px "+css("--f-mono");g.textAlign="center";g.textBaseline="middle";g.fillStyle=(i<2&&!kept)?ink:css("--panel");
+      const t=(v*100).toFixed(1)+"%"+(i<2&&!kept?" dropped":"");if(g.measureText(t).width<xb-xa-4)g.fillText(t,(xa+xb)/2,y+bh/2);
+      else if(g.measureText((v*100).toFixed(1)).width<xb-xa-2)g.fillText((v*100).toFixed(1),(xa+xb)/2,y+bh/2);});
+    g.font="600 12px "+css("--f-mono");g.fillStyle=i===2&&acc<0.895?css("--lost"):ink;g.textAlign="left";g.textBaseline="middle";
+    g.fillText("= "+(acc*100).toFixed(1)+"%",w-R+6,y+bh/2);});
+  g.strokeStyle=css("--acc");g.lineWidth=1.4;g.setLineDash([5,4]);g.beginPath();g.moveTo(sx(0.9),top-2);g.lineTo(sx(0.9),h-24);g.stroke();g.setLineDash([]);
+}
+// ---------- coverage curve
+function drawCov(){
+  const {g,w,h}=setup(covc);g.clearRect(0,0,w,h);
+  const pad={l:52,r:14,t:10,b:40},yr=[0.8,1];
+  const {sx,sy}=axes(g,w,h,pad,[0,6],yr,"true μ","coverage",[0,1,2,3,4,5,6],[0.8,0.85,0.9,0.95,1],v=>Math.round(v*100)+"%");
+  g.strokeStyle=css("--acc");g.lineWidth=1.2;g.setLineDash([5,4]);g.beginPath();g.moveTo(sx(0),sy(0.9));g.lineTo(sx(6),sy(0.9));g.stroke();g.setLineDash([]);
+  g.font="11px "+css("--f-mono");g.fillStyle=css("--acc");g.textAlign="right";g.textBaseline="bottom";g.fillText("claimed 90%",sx(6)-2,sy(0.9)-2);
+  const up=S.covUpTo,n=COV.mu.findIndex(v=>v>up+1e-9),N=n<0?COV.mu.length:n;
+  g.beginPath();g.moveTo(sx(0),sy(0.9));for(let i=0;i<N;i++)g.lineTo(sx(COV.mu[i]),sy(Math.min(COV.c[i],0.9)));g.lineTo(sx(COV.mu[Math.max(N-1,0)]),sy(0.9));g.closePath();g.fillStyle=css("--lost-soft");g.fill();
+  g.strokeStyle=css("--ink");g.lineWidth=2;g.beginPath();for(let i=0;i<N;i++){const x=sx(COV.mu[i]),y=sy(Math.max(COV.c[i],yr[0]));
+    if(i>0&&Math.abs(COV.c[i]-COV.c[i-1])>0.03){g.stroke();g.beginPath();g.moveTo(x,y);}else if(i)g.lineTo(x,y);else g.moveTo(x,y);}
+  g.strokeStyle=css("--ink");g.lineWidth=2;g.stroke();
+  if(up>=4.3){g.fillStyle=css("--lost");g.textAlign="center";g.textBaseline="top";g.fillText("85% for 1.36 < μ < 4.28",sx(2.82),sy(0.85)+4);}
+  const P=covered(S.mt).p;g.fillStyle=css("--ink");g.beginPath();g.arc(sx(S.mt),sy(Math.max(P,yr[0])),5,0,2*Math.PI);g.fill();
+}
+// ---------- step handling
+function layout(){
+  const st=S.step;
+  document.getElementById("flowbox").hidden=!(st===2||st===3);
+  document.getElementById("pdfbox").hidden=st<5;
+  document.getElementById("mcbox").hidden=st!==4;
+  document.getElementById("covbox").hidden=st<6;
+  document.getElementById("x0row").hidden=!(st===2||st===3);
+  document.getElementById("mtrow").hidden=!(st===1||st===6);
+  document.getElementById("rulesbox").hidden=st!==1;
+  document.getElementById("twobelts").hidden=st>2;
+  document.getElementById("belt").hidden=st<3;
+  document.getElementById("belt-title").textContent=st<=2?"Two belts, one per ordering rule":"What X quotes: μ against x";
+  document.getElementById("st-title").textContent=STEPS[st-1].t;
+  document.getElementById("st-text").textContent=STEPS[st-1].p;
+  nav.querySelectorAll("button").forEach((b,i)=>b.toggleAttribute("aria-current",i+1===st)||b.setAttribute("aria-current",i+1===st?"step":"false"));
+  nav.querySelectorAll("button").forEach((b,i)=>{if(i+1===st)b.setAttribute("aria-current","step");else b.removeAttribute("aria-current");});
+  document.getElementById("back").disabled=st===1;document.getElementById("next").disabled=st===6;
+  document.getElementById("play").hidden=!(st===2||st===6);
+}
+function redraw(){layout();if(S.step===4)drawMC();if(S.step<=2){drawSingle(bU,"up");drawSingle(bC,"ce");}else drawBelt();if(S.step===1)drawRules();if(S.step>=2&&S.step<=3)flow();document.getElementById("mtv").textContent=S.mt.toFixed(2);if(S.step>=5){drawPdf();drawSplit();}if(S.step>=6)drawCov();document.getElementById("x0v").textContent=f2(S.x0);}
+// ---------- animations
+let raf=null;const spd=()=>parseFloat(document.getElementById("speed").value);
+function stop(){if(raf){cancelAnimationFrame(raf);raf=null;}document.getElementById("play").textContent="Play this step";}
+function animate(get,set,to,rate,holds,onEnd){
+  stop();let v=get(),last=null,hold=1.0;document.getElementById("play").textContent="Pause";
+  const tick=t=>{if(last===null)last=t;const dt=Math.min(0.1,(t-last)/1000);last=t;
+    if(hold>0)hold-=dt*spd();else{const nv=v+rate*spd()*dt;const hh=holds.find(x=>v<x&&nv>=x);v=hh!==undefined?hh:Math.min(nv,to);if(hh!==undefined)hold=2.6;}
+    set(v);redraw();if(v>=to){raf=null;stop();if(onEnd)onEnd();return;}raf=requestAnimationFrame(tick);};
+  raf=requestAnimationFrame(tick);
+}
+function playStep(){
+  if(raf){stop();return;}
+  if(S.step===2){S.x0=-1.5;animate(()=>S.x0,v=>{S.x0=v;document.getElementById("x0").value=v;},5,0.28,[0,2.99,3]);}
+  if(S.step===6){S.mt=0;S.covUpTo=0;animate(()=>S.mt,v=>{S.mt=v;S.covUpTo=v;document.getElementById("mt").value=v;},6,0.2,[1.28,1.36,2,4.28,4.64],()=>{S.covUpTo=6;redraw();});}
+}
+function go(n){stop();mcStop();S.step=Math.min(6,Math.max(1,n));
+  if(S.step===2){S.x0=-1.5;}
+  if(S.step===3){S.x0=2.5;}
+  if(S.step===4){mcReset();}
+  if(S.step===1||S.step===5){S.mt=2;}
+  if(S.step===6){S.mt=0;S.covUpTo=0;}
+  document.getElementById("x0").value=S.x0;document.getElementById("mt").value=S.mt;redraw();
+  if(S.step===2||S.step===6)setTimeout(playStep,400);
+}
+document.getElementById("next").addEventListener("click",()=>go(S.step+1));
+document.getElementById("back").addEventListener("click",()=>go(S.step-1));
+document.getElementById("play").addEventListener("click",playStep);
+document.getElementById("speed").addEventListener("input",e=>{document.getElementById("speedv").textContent=e.target.value+"×";});
+document.getElementById("x0").addEventListener("input",e=>{stop();S.x0=parseFloat(e.target.value);redraw();});
+document.getElementById("mt").addEventListener("input",e=>{stop();S.mt=parseFloat(e.target.value);if(S.step===6)S.covUpTo=6;redraw();});
+let drag=false;
+const fromPtr=e=>{if(!bmap)return;const r=belt.getBoundingClientRect(),{pad,w,h}=bmap;
+  if(S.step===2||S.step===3){S.x0=Math.min(6,Math.max(-3,X[0]+(e.clientX-r.left-pad.l)/(w-pad.l-pad.r)*(X[1]-X[0])));document.getElementById("x0").value=S.x0;}
+  else if(S.step===1||S.step===6){S.mt=Math.min(6,Math.max(0,(h-pad.b-(e.clientY-r.top))/(h-pad.t-pad.b)*M[1]));S.covUpTo=6;document.getElementById("mt").value=S.mt;}
+  redraw();};
+[bU,bC].forEach(cv=>{
+  const f=e=>{if(!smap)return;const r=cv.getBoundingClientRect(),{pad,w,h}=smap;
+    if(S.step===2){S.x0=Math.min(6,Math.max(-3,X[0]+(e.clientX-r.left-pad.l)/(w-pad.l-pad.r)*(X[1]-X[0])));document.getElementById("x0").value=S.x0;}
+    else if(S.step===1){S.mt=Math.min(6,Math.max(0,(h-pad.b-(e.clientY-r.top))/(h-pad.t-pad.b)*M[1]));document.getElementById("mt").value=S.mt;}
+    redraw();};
+  let d=false;cv.addEventListener("pointerdown",e=>{stop();d=true;cv.setPointerCapture(e.pointerId);f(e);});
+  cv.addEventListener("pointermove",e=>{if(d)f(e);});cv.addEventListener("pointerup",()=>{d=false;});});
+belt.addEventListener("pointerdown",e=>{stop();drag=true;belt.setPointerCapture(e.pointerId);fromPtr(e);});
+belt.addEventListener("pointermove",e=>{if(drag)fromPtr(e);});
+belt.addEventListener("pointerup",()=>{drag=false;});
+new ResizeObserver(()=>redraw()).observe(document.querySelector(".grid"));
+window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change",redraw);
+new MutationObserver(redraw).observe(document.documentElement,{attributes:true,attributeFilter:["data-theme"]});
+document.fonts&&document.fonts.ready.then(redraw);
+go(1);
+})();
+</script>
+
+</html>

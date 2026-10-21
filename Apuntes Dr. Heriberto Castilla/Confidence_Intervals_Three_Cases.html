@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Three Kinds of Interval</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a lab-bench instrument. Belt plot is the main stage (left), the pdf of the current mu and the readout sit beside it (right); controls run along the top. */
+:root{
+  --bg:#f6f7f9; --panel:#ffffff; --ink:#1b2730; --ink2:#55626d; --muted:#8b96a0; --rule:#dfe3e8; --grid:#eceff3;
+  --acc:#2e6da8; --acc-soft:rgba(46,109,168,.16); --lost:#c8574f; --lost-soft:rgba(200,87,79,.22);
+  --meas:#b4632a; --hit:#2e6da8; --faint:#c3cbd3;
+  --f-disp:"Newsreader", "Iowan Old Style", Georgia, serif;
+  --f-body:"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono:"IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#12171c; --panel:#192027; --ink:#e7ecf0; --ink2:#a9b4bd; --muted:#7c8893; --rule:#2b343d; --grid:#222a32;
+  --acc:#6fa8dc; --acc-soft:rgba(111,168,220,.20); --lost:#e07b72; --lost-soft:rgba(224,123,114,.25);
+  --meas:#e3a062; --hit:#6fa8dc; --faint:#46525d; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#12171c; --panel:#192027; --ink:#e7ecf0; --ink2:#a9b4bd; --muted:#7c8893; --rule:#2b343d; --grid:#222a32;
+  --acc:#6fa8dc; --acc-soft:rgba(111,168,220,.20); --lost:#e07b72; --lost-soft:rgba(224,123,114,.25);
+  --meas:#e3a062; --hit:#6fa8dc; --faint:#46525d; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.5;margin:0}
+.wrap{max-width:1180px;margin:0 auto;padding-block:20px 40px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+header{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 18px;margin-bottom:14px}
+h1{font-family:var(--f-disp);font-weight:600;font-size:1.9rem;margin:0;letter-spacing:-.01em;text-wrap:balance}
+.sub{color:var(--ink2);margin:0;max-width:68ch}
+.eq{font-family:var(--f-mono);font-size:.85rem;color:var(--ink2)}
+math{font-family:"Latin Modern Math","STIX Two Math","Cambria Math",var(--f-disp),serif}
+.gmath-in{font-size:1.05em;color:var(--ink)}
+.formula{margin:4px 0 10px;padding:8px 10px;border-radius:6px;background:var(--bg);overflow-x:auto}
+.gmath{font-size:1.25rem;color:var(--ink);margin:0}
+.controls{display:flex;flex-wrap:wrap;gap:10px 22px;align-items:center;background:var(--panel);border:1px solid var(--rule);border-radius:8px;padding:12px 14px;margin-bottom:14px}
+.group{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.lab{font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:600}
+.lab .sym,.lab.sym{text-transform:none;letter-spacing:0;font-size:.95rem}
+.seg{display:inline-flex;border:1px solid var(--rule);border-radius:6px;overflow:hidden}
+.seg button{border:0;background:transparent;color:var(--ink2);font:inherit;font-size:.88rem;padding:6px 10px;cursor:pointer}
+.seg button+button{border-left:1px solid var(--rule)}
+.seg button[aria-pressed="true"]{background:var(--acc);color:var(--panel)}
+.btn{border:1px solid var(--rule);background:var(--panel);color:var(--ink);font:inherit;font-size:.88rem;padding:6px 12px;border-radius:6px;cursor:pointer}
+.btn.primary{background:var(--acc);border-color:var(--acc);color:var(--panel);font-weight:500}
+.btn:focus-visible,.seg button:focus-visible,input:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.grid{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:14px}
+@media (max-width:860px){.grid{grid-template-columns:minmax(0,1fr)}}
+.card{background:var(--panel);border:1px solid var(--rule);border-radius:8px;padding:12px 14px;min-width:0}
+.card h2{font-family:var(--f-disp);font-weight:500;font-size:1.15rem;margin:0 0 2px}
+.card .hint{color:var(--muted);font-size:.82rem;margin:0 0 8px}
+canvas{display:block;width:100%;touch-action:none}
+#belt{aspect-ratio:1/0.92}
+#pdf{aspect-ratio:1/0.62}
+.slider{display:grid;grid-template-columns:auto minmax(0,1fr) 4.2em;gap:10px;align-items:center;margin-top:10px}
+.slider output{font-family:var(--f-mono);font-variant-numeric:tabular-nums;text-align:right}
+input[type=range]{width:100%;accent-color:var(--acc)}
+#x0row input{accent-color:var(--meas)}
+.readout{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;margin-top:12px;font-size:.92rem}
+.readout dt{color:var(--ink2)}
+.readout dd{margin:0;font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.result{margin-top:10px;padding:10px 12px;border-radius:6px;background:var(--acc-soft);font-size:.95rem}
+.result.empty{background:var(--lost-soft)}
+.steps{margin:14px 0 0;padding-left:1.3em;color:var(--ink2);font-size:.9rem;max-width:75ch}
+.steps li{margin:3px 0}
+.steps li.on{color:var(--ink)}
+.steps li.on::marker{color:var(--acc);font-weight:600}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:.8rem;color:var(--ink2);margin-top:6px}
+.sw{display:inline-block;width:14px;height:8px;border-radius:2px;margin-right:6px;vertical-align:middle}
+footer{color:var(--muted);font-size:.8rem;margin-top:18px;max-width:80ch}
+.isec{margin-top:14px}
+.slider[hidden]{display:none}
+.icontrols{display:flex;flex-wrap:wrap;gap:10px 22px;align-items:center;margin:4px 0 10px}
+.igrid{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:18px}
+@media (max-width:860px){.igrid{grid-template-columns:minmax(0,1fr)}}
+#ipdf{aspect-ratio:1/0.5}
+#icdf{aspect-ratio:1/0.36;margin-top:6px}
+.ifml math{font-size:1.15rem;color:var(--ink);margin:2px 0}
+.ival{color:var(--acc);font-weight:600}
+.fnote{font-size:.8rem;color:var(--muted);margin:4px 0 0}
+.tailbar{position:relative;display:flex;height:16px;border-radius:4px;overflow:visible;margin-top:12px;background:var(--grid)}
+.tailbar span{height:100%}
+#tb-l,#tb-r{background:var(--lost-soft)}
+#tb-c{background:var(--acc)}
+#tb-l{border-radius:4px 0 0 4px}#tb-r{border-radius:0 4px 4px 0}
+.tailtxt{display:flex;justify-content:space-between;gap:8px;font-size:.82rem;color:var(--ink2);margin-top:4px;font-variant-numeric:tabular-nums}
+.tailtxt b{font-family:var(--f-mono);font-weight:500;color:var(--ink)}
+
+:root{--two:#b4632a;--clip:#2f8a5b;--empty:#7a5aa6;--two-soft:rgba(180,99,42,.16);--clip-soft:rgba(47,138,91,.16);--empty-soft:rgba(122,90,166,.16)}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--two:#e3a062;--clip:#5cc08a;--empty:#a98be0;--two-soft:rgba(227,160,98,.2);--clip-soft:rgba(92,192,138,.2);--empty-soft:rgba(169,139,224,.22)}}
+:root[data-theme="dark"]{--two:#e3a062;--clip:#5cc08a;--empty:#a98be0;--two-soft:rgba(227,160,98,.2);--clip-soft:rgba(92,192,138,.2);--empty-soft:rgba(169,139,224,.22)}
+#belt{aspect-ratio:1/0.95}
+#cat{aspect-ratio:1/1.05}
+.result.two{background:var(--two-soft)}.result.clip{background:var(--clip-soft)}.result.empty{background:var(--empty-soft)}
+.kinds{display:grid;gap:6px;margin:12px 0 0;padding:0;list-style:none;font-size:.88rem;color:var(--ink2)}
+.kinds li{display:grid;grid-template-columns:14px 1fr;gap:8px;align-items:start;padding:4px 6px;border-radius:5px}
+.kinds li.on{background:var(--bg);color:var(--ink)}
+.kinds .sw{width:14px;height:14px;margin:3px 0 0;border-radius:3px}
+.slider[hidden]{display:none}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Three Kinds of Interval</h1>
+    <p class="sub">The central belt is built. Now measure x₀ and read the interval off it. One Gaussian measurement with σ = 1, only μ ≥ 0 allowed, as in Feldman and Cousins (1998).</p>
+  </header>
+
+  <div class="controls" role="group" aria-label="Settings">
+    <div class="group"><span class="lab">Confidence level <span class="sym">α</span></span>
+      <div class="seg" id="cl" role="group" aria-label="Confidence level">
+        <button type="button" data-v="0.6827" aria-pressed="false">68%</button>
+        <button type="button" data-v="0.90" aria-pressed="true">90%</button>
+        <button type="button" data-v="0.95" aria-pressed="false">95%</button>
+      </div></div>
+    <div class="group">
+      <button type="button" class="btn primary" id="sweep">Sweep x₀ downwards</button>
+      <button type="button" class="btn" id="add">Add this x₀ to the list</button>
+      <button type="button" class="btn" id="clear">Clear the list</button>
+    </div>
+    <div class="group"><label class="lab" for="speed">Speed</label><input type="range" id="speed" min="0.25" max="2" step="0.25" value="0.75" style="width:110px"><output id="speedv" class="eq">0.75×</output></div>
+  </div>
+
+  <div class="grid">
+    <section class="card" aria-label="Confidence belt with the measurement line">
+      <h2>Read the interval off the belt</h2>
+      <p class="hint">The vertical line at x₀ meets the acceptance intervals of some values of μ. Those μ form the confidence interval, drawn on the μ axis. The coloured strip on top shows which kind of interval each x₀ gives. Drag on the plot or use the slider.</p>
+      <canvas id="belt" aria-label="Confidence belt and the vertical line at x0"></canvas>
+      <div class="slider"><label class="lab sym" for="x0">x₀</label><input type="range" id="x0" min="-3" max="6" step="0.01" value="3"><output id="x0v">3.00</output></div>
+      <div class="result two" id="result" aria-live="polite">—</div>
+      <ul class="kinds" id="kinds">
+        <li data-k="two"><i class="sw" style="background:var(--two)"></i><span><b>Two-sided</b>: the line crosses both edges of the belt, μ₁ ≤ μ ≤ μ₂.</span></li>
+        <li data-k="clip"><i class="sw" style="background:var(--clip)"></i><span><b>Upper limit</b>: the lower edge of the belt is below μ = 0, so the interval starts at the boundary, 0 ≤ μ ≤ μ₂.</span></li>
+        <li data-k="empty"><i class="sw" style="background:var(--empty)"></i><span><b>Empty</b>: the line misses the belt altogether. No μ ≥ 0 has x₀ in its acceptance interval.</span></li>
+      </ul>
+    </section>
+
+    <section class="card" aria-label="List of intervals">
+      <h2>One interval per measurement</h2>
+      <p class="hint">Each row is one measured x₀ and the interval it gives, on the same μ scale. Sweep x₀, or add values by hand.</p>
+      <canvas id="cat" aria-label="Intervals for the listed measurements"></canvas>
+      <dl class="readout">
+        <dt>x₀</dt><dd id="r-x0">—</dd>
+        <dt>interval</dt><dd id="r-iv">—</dd>
+        <dt>length</dt><dd id="r-len">—</dd>
+      </dl>
+    </section>
+  </div>
+
+  <footer>Exact Gaussian quantiles; no simulation. Every interval shown, empty ones included, comes from the same 90% belt, so the procedure covers the true μ in 90% of repeated experiments whatever the outcome of one of them. Central belt as in Fig. 1 of G. J. Feldman and R. D. Cousins, Phys. Rev. D 57 (1998) 3873.</footer>
+</div>
+
+<script>
+(()=>{
+function normInv(p){
+  const a=[-39.69683028665376,220.9460984245205,-275.9285104469687,138.3577518672690,-30.66479806614716,2.506628277459239],
+        b=[-54.47609879822406,161.5858368580409,-155.6989798598866,66.80131188771972,-13.28068155288572],
+        c=[-0.007784894002430293,-0.3223964580411365,-2.400758277161838,-2.549732539343734,4.374664141464968,2.938163982698783],
+        d=[0.007784695709041462,0.3224671290700398,2.445134137142996,3.754408661907416];
+  const pl=0.02425; let q,r;
+  if(p<pl){q=Math.sqrt(-2*Math.log(p));return(((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5])/((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1);}
+  if(p>1-pl){q=Math.sqrt(-2*Math.log(1-p));return-(((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5])/((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1);}
+  q=p-0.5;r=q*q;return(((((a[0]*r+a[1])*r+a[2])*r+a[3])*r+a[4])*r+a[5])*q/(((((b[0]*r+b[1])*r+b[2])*r+b[3])*r+b[4])*r+1);
+}
+const X=[-3,7], M=[0,6.4], MUMAX=6.4;
+const S={rule:"central",cl:0.90,x0:3,list:[]};
+const zc=()=>S.rule==="central"?normInv(0.5+S.cl/2):normInv(S.cl);
+// interval for a measurement x0: all mu>=0 whose acceptance interval contains x0
+function interval(x0){
+  const z=zc();
+  if(S.rule==="central"){const lo=x0-z,hi=x0+z; if(hi<0)return{k:"empty"}; return lo>0?{k:"two",lo,hi}:{k:"clip",lo:0,hi};}
+  const hi=x0+z; return hi<0?{k:"empty"}:{k:"clip",lo:0,hi};
+}
+const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+function setup(cv){const r=cv.getBoundingClientRect(),dpr=window.devicePixelRatio||1;cv.width=Math.round(r.width*dpr);cv.height=Math.round(r.height*dpr);const g=cv.getContext("2d");g.setTransform(dpr,0,0,dpr,0,0);return{g,w:r.width,h:r.height};}
+const neg=s=>s.replace(/-/g,"−");
+const f2=v=>neg((Math.abs(v)<0.005?0:v).toFixed(2));
+function axes(g,w,h,pad,xr,yr,xl,yl,xticks,yticks){
+  const ink=css("--ink"),ink2=css("--ink2"),grid=css("--grid"),rule=css("--rule");
+  const sx=v=>pad.l+(v-xr[0])/(xr[1]-xr[0])*(w-pad.l-pad.r), sy=v=>h-pad.b-(v-yr[0])/(yr[1]-yr[0])*(h-pad.t-pad.b);
+  g.font="12px "+css("--f-mono");g.lineWidth=1;
+  xticks.forEach(v=>{g.strokeStyle=grid;g.beginPath();g.moveTo(sx(v),sy(yr[0]));g.lineTo(sx(v),sy(yr[1]));g.stroke();
+    g.fillStyle=ink2;g.textAlign="center";g.textBaseline="top";g.fillText(neg(String(v)),sx(v),h-pad.b+6);});
+  yticks.forEach(v=>{g.strokeStyle=grid;g.beginPath();g.moveTo(sx(xr[0]),sy(v));g.lineTo(sx(xr[1]),sy(v));g.stroke();
+    g.fillStyle=ink2;g.textAlign="right";g.textBaseline="middle";g.fillText(String(v),pad.l-8,sy(v));});
+  g.strokeStyle=rule;g.beginPath();g.moveTo(pad.l,sy(yr[0]));g.lineTo(w-pad.r,sy(yr[0]));g.moveTo(pad.l,sy(yr[0]));g.lineTo(pad.l,sy(yr[1]));g.stroke();
+  g.font="13px "+css("--f-body");g.fillStyle=ink;g.textAlign="center";g.textBaseline="bottom";g.fillText(xl,(pad.l+w-pad.r)/2,h-2);
+  if(yl){g.save();g.translate(12,(pad.t+h-pad.b)/2);g.rotate(-Math.PI/2);g.textBaseline="middle";g.fillText(yl,0,0);g.restore();}
+  return{sx,sy};
+}
+const KC={two:"--two",clip:"--clip",empty:"--empty"};
+// ---------- the belt
+const belt=document.getElementById("belt"), cat=document.getElementById("cat");
+let bmap=null;
+function drawBelt(){
+  const {g,w,h}=setup(belt);g.clearRect(0,0,w,h);
+  const pad={l:44,r:12,t:30,b:40};
+  const {sx,sy}=axes(g,w,h,pad,X,M,"measured quantity x","parameter μ",[-3,-2,-1,0,1,2,3,4,5,6,7],[0,1,2,3,4,5,6]);bmap={sx,sy,pad,w,h};
+  const z=zc(),acc=css("--acc"),soft=css("--acc-soft"),ink=css("--ink"),ink2=css("--ink2");
+  // the band: for each mu, x in [mu-z, mu+z] (central) or [mu-z, +inf) (upper)
+  g.save();g.beginPath();g.rect(pad.l,pad.t,w-pad.l-pad.r,h-pad.t-pad.b);g.clip();
+  g.beginPath();g.moveTo(sx(M[0]-z),sy(M[0]));g.lineTo(sx(M[1]-z),sy(M[1]));
+  if(S.rule==="central"){g.lineTo(sx(M[1]+z),sy(M[1]));g.lineTo(sx(M[0]+z),sy(M[0]));}else{g.lineTo(sx(X[1]+1),sy(M[1]));g.lineTo(sx(X[1]+1),sy(M[0]));}
+  g.closePath();g.fillStyle=soft;g.fill();
+  g.strokeStyle=acc;g.lineWidth=2;g.beginPath();g.moveTo(sx(M[0]-z),sy(M[0]));g.lineTo(sx(M[1]-z),sy(M[1]));g.stroke();
+  if(S.rule==="central"){g.beginPath();g.moveTo(sx(M[0]+z),sy(M[0]));g.lineTo(sx(M[1]+z),sy(M[1]));g.stroke();}
+  // a few acceptance intervals as reminders
+  g.strokeStyle=acc;g.lineWidth=1;g.globalAlpha=0.35;
+  for(let m=0;m<=6;m+=0.5){g.beginPath();g.moveTo(sx(m-z),sy(m));g.lineTo(S.rule==="central"?sx(m+z):w,sy(m));g.stroke();}
+  g.globalAlpha=1;g.restore();
+  // edge labels
+  g.font="11px "+css("--f-mono");g.fillStyle=acc;g.textAlign="left";g.textBaseline="middle";
+  if(S.rule==="central"){g.fillText("x = μ + "+z.toFixed(2),sx(0.15+z)+4,sy(0.35));}
+  g.textAlign="left";g.fillText("x = μ − "+z.toFixed(2),sx(5.2-z)+6,sy(5.2));
+  // the three regions of x0, and the two belt corners on mu = 0 that separate them
+  {const z=zc(),R=[[X[0],-z,"empty","empty"],[-z,z,"clip","upper limit"],[z,X[1],"two","two-sided interval"]];
+   R.forEach(([a,b,k,l])=>{const xa=sx(a),xb=sx(b);g.fillStyle=css(KC[k]);g.globalAlpha=0.9;g.fillRect(xa,6,xb-xa,18);g.globalAlpha=1;
+     g.font="600 11px "+css("--f-body");g.fillStyle=css("--panel");g.textAlign="center";g.textBaseline="middle";if(g.measureText(l).width<xb-xa-6)g.fillText(l,(xa+xb)/2,15);});
+   g.setLineDash([2,3]);g.lineWidth=1;g.strokeStyle=ink2;
+   [-z,z].forEach(v=>{g.beginPath();g.moveTo(sx(v),24);g.lineTo(sx(v),sy(0));g.stroke();});g.setLineDash([]);
+   [-z,z].forEach(v=>{g.fillStyle=ink;g.beginPath();g.arc(sx(v),sy(0),4.5,0,2*Math.PI);g.fill();});}
+  // measurement
+  const iv=interval(S.x0),col=css(KC[iv.k]);
+  g.strokeStyle=col;g.lineWidth=1.6;g.setLineDash([6,4]);g.beginPath();g.moveTo(sx(S.x0),sy(M[0]));g.lineTo(sx(S.x0),sy(M[1]));g.stroke();g.setLineDash([]);
+  g.font="12px "+css("--f-mono");g.fillStyle=col;g.textAlign=S.x0>5.5?"right":"left";g.textBaseline="top";g.fillText("x₀ = "+f2(S.x0),sx(S.x0)+(S.x0>5.5?-5:5),pad.t+2);
+  if(iv.k!=="empty"){
+    const hi=Math.min(iv.hi,M[1]);
+    g.strokeStyle=col;g.lineWidth=4;g.beginPath();g.moveTo(sx(S.x0),sy(iv.lo));g.lineTo(sx(S.x0),sy(hi));g.stroke();
+    g.lineWidth=7;g.beginPath();g.moveTo(pad.l+4,sy(iv.lo));g.lineTo(pad.l+4,sy(hi));g.stroke();
+    g.lineWidth=1;g.setLineDash([2,3]);[iv.lo,iv.hi].forEach(v=>{if(v<=M[1]){g.beginPath();g.moveTo(pad.l,sy(v));g.lineTo(sx(S.x0),sy(v));g.stroke();}});g.setLineDash([]);
+    g.fillStyle=col;g.textAlign="left";g.textBaseline="bottom";
+    if(iv.hi<=M[1])g.fillText("μ₂ = "+iv.hi.toFixed(2),pad.l+12,sy(iv.hi)-2);
+    if(iv.k==="two")g.fillText("μ₁ = "+iv.lo.toFixed(2),pad.l+12,sy(iv.lo)-2);
+    // the edge points
+    g.beginPath();[[iv.lo,iv.k==="two"],[iv.hi,iv.hi<=M[1]]].forEach(([v,on])=>{if(on){g.moveTo(sx(S.x0)+4,sy(v));g.arc(sx(S.x0),sy(v),4,0,2*Math.PI);}});g.fill();
+  } else {
+    g.fillStyle=col;g.textAlign="left";g.textBaseline="bottom";g.fillText("∅ no μ ≥ 0",sx(S.x0)+6,sy(0.3));
+  }
+}
+// ---------- the list
+function drawCat(){
+  const {g,w,h}=setup(cat);g.clearRect(0,0,w,h);
+  const pad={l:64,r:14,t:10,b:40},ink2=css("--ink2"),grid=css("--grid"),rule=css("--rule"),ink=css("--ink");
+  const sx=v=>pad.l+(v-M[0])/(M[1]-M[0])*(w-pad.l-pad.r);
+  g.font="12px "+css("--f-mono");g.lineWidth=1;
+  [0,1,2,3,4,5,6].forEach(v=>{g.strokeStyle=grid;g.beginPath();g.moveTo(sx(v),pad.t);g.lineTo(sx(v),h-pad.b);g.stroke();g.fillStyle=ink2;g.textAlign="center";g.textBaseline="top";g.fillText(String(v),sx(v),h-pad.b+6);});
+  g.strokeStyle=rule;g.beginPath();g.moveTo(pad.l,h-pad.b);g.lineTo(w-pad.r,h-pad.b);g.moveTo(pad.l,pad.t);g.lineTo(pad.l,h-pad.b);g.stroke();
+  g.font="13px "+css("--f-body");g.fillStyle=ink;g.textAlign="center";g.textBaseline="bottom";g.fillText("parameter μ",(pad.l+w-pad.r)/2,h-2);
+  g.font="11px "+css("--f-body");g.fillStyle=ink2;g.textAlign="left";g.textBaseline="top";g.fillText("x₀",6,pad.t);
+  const rows=[...S.list].sort((a,b)=>b-a);
+  if(!rows.length){g.font="13px "+css("--f-body");g.fillStyle=css("--muted");g.textAlign="center";g.textBaseline="middle";g.fillText("No measurements yet",(pad.l+w-pad.r)/2,(pad.t+h-pad.b)/2);return;}
+  const n=Math.max(rows.length,8),rh=(h-pad.t-pad.b-14)/n;
+  rows.forEach((x0,i)=>{const iv=interval(x0),col=css(KC[iv.k]),y=pad.t+14+rh*(i+0.5),cur=Math.abs(x0-S.x0)<0.005;
+    g.font=(cur?"600 ":"")+"12px "+css("--f-mono");g.fillStyle=cur?ink:ink2;g.textAlign="right";g.textBaseline="middle";g.fillText(f2(x0),pad.l-8,y);
+    if(iv.k==="empty"){g.fillStyle=col;g.textAlign="left";g.fillText("∅ empty",pad.l+6,y);return;}
+    const lw=Math.max(3,Math.min(9,rh*0.45));g.strokeStyle=col;g.lineWidth=lw;g.lineCap="butt";
+    g.beginPath();g.moveTo(sx(iv.lo),y);g.lineTo(sx(Math.min(iv.hi,M[1])),y);g.stroke();
+    if(iv.k==="clip"){g.lineWidth=2;g.beginPath();g.moveTo(sx(0)+1,y-lw);g.lineTo(sx(0)+1,y+lw);g.stroke();}
+    if(rh>15){g.font="11px "+css("--f-mono");g.fillStyle=col;g.textAlign="left";g.textBaseline="middle";
+      const t=iv.k==="two"?"["+iv.lo.toFixed(2)+", "+iv.hi.toFixed(2)+"]":"μ ≤ "+iv.hi.toFixed(2);
+      const xe=sx(Math.min(iv.hi,M[1]))+6; if(xe+70<w)g.fillText(t,xe,y);}
+  });
+}
+// ---------- readout
+function readout(){
+  const iv=interval(S.x0),z=zc(),r=document.getElementById("result"),L=Math.round(S.cl*100)+"% C.L";
+  document.getElementById("x0v").textContent=f2(S.x0);document.getElementById("r-x0").textContent=f2(S.x0);
+  r.className="result "+iv.k;
+  if(iv.k==="two"){r.textContent="x₀ = "+f2(S.x0)+" gives "+iv.lo.toFixed(2)+" ≤ μ ≤ "+iv.hi.toFixed(2)+" at "+L+". The line crosses both edges of the belt; the interval is x₀ ± "+z.toFixed(2)+", always "+(2*z).toFixed(2)+" long.";
+    document.getElementById("r-iv").textContent="["+iv.lo.toFixed(2)+", "+iv.hi.toFixed(2)+"]";document.getElementById("r-len").textContent=(iv.hi-iv.lo).toFixed(2);}
+  else if(iv.k==="clip"){
+    const why=S.rule==="central"?"The lower edge x₀ − "+z.toFixed(2)+" = "+f2(S.x0-z)+" is below 0, so the interval stops at the boundary μ = 0.":"With this ordering rule every interval is an upper limit.";
+    const shrink=S.x0<0?" The interval is getting short: it is only "+iv.hi.toFixed(2)+" long, although σ = 1.":"";
+    r.textContent="x₀ = "+f2(S.x0)+" gives μ ≤ "+iv.hi.toFixed(2)+" at "+L+". "+why+shrink;
+    document.getElementById("r-iv").textContent="[0, "+iv.hi.toFixed(2)+"]";document.getElementById("r-len").textContent=iv.hi.toFixed(2);}
+  else{r.textContent="x₀ = "+f2(S.x0)+" gives an empty interval: x₀ is below the belt for every μ ≥ 0 (it would need x₀ ≥ −"+z.toFixed(2)+"). It still counts as one of the "+Math.round((1-S.cl)*100)+"% of experiments that miss the true μ.";
+    document.getElementById("r-iv").textContent="∅";document.getElementById("r-len").textContent="—";}
+  document.querySelectorAll("#kinds li").forEach(li=>li.classList.toggle("on",li.dataset.k===iv.k));
+}
+function redraw(){drawBelt();drawCat();readout();}
+// ---------- sweep: x0 comes down slowly; an interval is added to the list at every half unit
+let raf=null;const spd=()=>parseFloat(document.getElementById("speed").value);
+function stop(){if(raf){cancelAnimationFrame(raf);raf=null;}document.getElementById("sweep").textContent="Sweep x₀ downwards";}
+function sweep(){
+  if(raf){stop();return;}
+  S.list=[];const start=5,end=-2.5,z=zc(),rate=0.22; // units of x per second at 1x
+  const holds=[S.rule==="central"?z:null,0,-z].filter(v=>v!==null); // pause where the kind of interval changes
+  let x=start,last=null,hold=0,marks=new Set();S.x0=x;document.getElementById("sweep").textContent="Pause";
+  const tick=t=>{
+    if(last===null)last=t;const dt=(t-last)/1000;last=t;
+    if(hold>0){hold-=dt*spd();}
+    else{const nx=x-rate*spd()*dt;
+      const hit=holds.find(v=>x>v&&nx<=v); x=hit!==undefined?hit:nx; if(hit!==undefined)hold=2.2;}
+    const k=Math.round(x*2)/2; if(Math.abs(x-k)<0.02&&!marks.has(k)){marks.add(k);S.list.push(k);}
+    if(holds.some(v=>Math.abs(x-v)<1e-9)&&!S.list.some(u=>Math.abs(u-x)<1e-3))S.list.push(x);
+    S.x0=x;document.getElementById("x0").value=x;redraw();
+    if(x<=end){raf=null;stop();redraw();return;}
+    raf=requestAnimationFrame(tick);};
+  raf=requestAnimationFrame(tick);
+}
+// ---------- controls
+function segGroup(id,key,cast){document.querySelectorAll("#"+id+" button").forEach(b=>b.addEventListener("click",()=>{
+  document.querySelectorAll("#"+id+" button").forEach(o=>o.setAttribute("aria-pressed",o===b?"true":"false"));
+  S[key]=cast(b.dataset.v);redraw();}));}
+segGroup("cl","cl",parseFloat);
+document.getElementById("sweep").addEventListener("click",sweep);
+document.getElementById("add").addEventListener("click",()=>{if(!S.list.some(u=>Math.abs(u-S.x0)<0.005))S.list.push(+S.x0.toFixed(2));redraw();});
+document.getElementById("clear").addEventListener("click",()=>{stop();S.list=[];redraw();});
+document.getElementById("speed").addEventListener("input",e=>{document.getElementById("speedv").textContent=e.target.value+"×";});
+document.getElementById("x0").addEventListener("input",e=>{stop();S.x0=parseFloat(e.target.value);redraw();});
+let drag=false;
+const setFromPointer=e=>{const r=belt.getBoundingClientRect(),px=e.clientX-r.left,{pad,w}=bmap;S.x0=Math.min(6,Math.max(-3,X[0]+(px-pad.l)/(w-pad.l-pad.r)*(X[1]-X[0])));document.getElementById("x0").value=S.x0;redraw();};
+belt.addEventListener("pointerdown",e=>{stop();drag=true;belt.setPointerCapture(e.pointerId);setFromPointer(e);});
+belt.addEventListener("pointermove",e=>{if(drag&&bmap)setFromPointer(e);});
+belt.addEventListener("pointerup",()=>{drag=false;});
+new ResizeObserver(()=>redraw()).observe(belt);
+window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change",redraw);
+new MutationObserver(redraw).observe(document.documentElement,{attributes:true,attributeFilter:["data-theme"]});
+document.fonts&&document.fonts.ready.then(redraw);
+redraw();
+})();
+</script>
+
+</html>

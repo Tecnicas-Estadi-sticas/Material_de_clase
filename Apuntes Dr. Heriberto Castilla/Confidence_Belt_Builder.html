@@ -1,0 +1,590 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Confidence Belt Builder</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a lab-bench instrument. Belt plot is the main stage (left), the pdf of the current mu and the readout sit beside it (right); controls run along the top. */
+:root{
+  --bg:#f6f7f9; --panel:#ffffff; --ink:#1b2730; --ink2:#55626d; --muted:#8b96a0; --rule:#dfe3e8; --grid:#eceff3;
+  --acc:#2e6da8; --acc-soft:rgba(46,109,168,.16); --lost:#c8574f; --lost-soft:rgba(200,87,79,.22);
+  --meas:#b4632a; --hit:#2e6da8; --faint:#c3cbd3;
+  --f-disp:"Newsreader", "Iowan Old Style", Georgia, serif;
+  --f-body:"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono:"IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#12171c; --panel:#192027; --ink:#e7ecf0; --ink2:#a9b4bd; --muted:#7c8893; --rule:#2b343d; --grid:#222a32;
+  --acc:#6fa8dc; --acc-soft:rgba(111,168,220,.20); --lost:#e07b72; --lost-soft:rgba(224,123,114,.25);
+  --meas:#e3a062; --hit:#6fa8dc; --faint:#46525d; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#12171c; --panel:#192027; --ink:#e7ecf0; --ink2:#a9b4bd; --muted:#7c8893; --rule:#2b343d; --grid:#222a32;
+  --acc:#6fa8dc; --acc-soft:rgba(111,168,220,.20); --lost:#e07b72; --lost-soft:rgba(224,123,114,.25);
+  --meas:#e3a062; --hit:#6fa8dc; --faint:#46525d; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.5;margin:0}
+.wrap{max-width:1180px;margin:0 auto;padding-block:20px 40px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+header{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 18px;margin-bottom:14px}
+h1{font-family:var(--f-disp);font-weight:600;font-size:1.9rem;margin:0;letter-spacing:-.01em;text-wrap:balance}
+.sub{color:var(--ink2);margin:0;max-width:68ch}
+.eq{font-family:var(--f-mono);font-size:.85rem;color:var(--ink2)}
+math{font-family:"Latin Modern Math","STIX Two Math","Cambria Math",var(--f-disp),serif}
+.gmath-in{font-size:1.05em;color:var(--ink)}
+.formula{margin:4px 0 10px;padding:8px 10px;border-radius:6px;background:var(--bg);overflow-x:auto}
+.gmath{font-size:1.25rem;color:var(--ink);margin:0}
+.controls{display:flex;flex-wrap:wrap;gap:10px 22px;align-items:center;background:var(--panel);border:1px solid var(--rule);border-radius:8px;padding:12px 14px;margin-bottom:14px}
+.group{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.lab{font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:600}
+.lab .sym,.lab.sym{text-transform:none;letter-spacing:0;font-size:.95rem}
+.seg{display:inline-flex;border:1px solid var(--rule);border-radius:6px;overflow:hidden}
+.seg button{border:0;background:transparent;color:var(--ink2);font:inherit;font-size:.88rem;padding:6px 10px;cursor:pointer}
+.seg button+button{border-left:1px solid var(--rule)}
+.seg button[aria-pressed="true"]{background:var(--acc);color:var(--panel)}
+.btn{border:1px solid var(--rule);background:var(--panel);color:var(--ink);font:inherit;font-size:.88rem;padding:6px 12px;border-radius:6px;cursor:pointer}
+.btn.primary{background:var(--acc);border-color:var(--acc);color:var(--panel);font-weight:500}
+.btn:focus-visible,.seg button:focus-visible,input:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.grid{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:14px}
+@media (max-width:860px){.grid{grid-template-columns:minmax(0,1fr)}}
+.card{background:var(--panel);border:1px solid var(--rule);border-radius:8px;padding:12px 14px;min-width:0}
+.card h2{font-family:var(--f-disp);font-weight:500;font-size:1.15rem;margin:0 0 2px}
+.card .hint{color:var(--muted);font-size:.82rem;margin:0 0 8px}
+canvas{display:block;width:100%;touch-action:none}
+#belt{aspect-ratio:1/0.92}
+#pdf{aspect-ratio:1/0.62}
+.slider{display:grid;grid-template-columns:auto minmax(0,1fr) 4.2em;gap:10px;align-items:center;margin-top:10px}
+.slider output{font-family:var(--f-mono);font-variant-numeric:tabular-nums;text-align:right}
+input[type=range]{width:100%;accent-color:var(--acc)}
+#x0row input{accent-color:var(--meas)}
+.readout{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;margin-top:12px;font-size:.92rem}
+.readout dt{color:var(--ink2)}
+.readout dd{margin:0;font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.result{margin-top:10px;padding:10px 12px;border-radius:6px;background:var(--acc-soft);font-size:.95rem}
+.result.empty{background:var(--lost-soft)}
+.steps{margin:14px 0 0;padding-left:1.3em;color:var(--ink2);font-size:.9rem;max-width:75ch}
+.steps li{margin:3px 0}
+.steps li.on{color:var(--ink)}
+.steps li.on::marker{color:var(--acc);font-weight:600}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:.8rem;color:var(--ink2);margin-top:6px}
+.sw{display:inline-block;width:14px;height:8px;border-radius:2px;margin-right:6px;vertical-align:middle}
+footer{color:var(--muted);font-size:.8rem;margin-top:18px;max-width:80ch}
+.isec{margin-top:14px}
+.slider[hidden]{display:none}
+.icontrols{display:flex;flex-wrap:wrap;gap:10px 22px;align-items:center;margin:4px 0 10px}
+.igrid{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:18px}
+@media (max-width:860px){.igrid{grid-template-columns:minmax(0,1fr)}}
+#ipdf{aspect-ratio:1/0.5}
+#icdf{aspect-ratio:1/0.36;margin-top:6px}
+.ifml math{font-size:1.15rem;color:var(--ink);margin:2px 0}
+.ival{color:var(--acc);font-weight:600}
+.fnote{font-size:.8rem;color:var(--muted);margin:4px 0 0}
+.tailbar{position:relative;display:flex;height:16px;border-radius:4px;overflow:visible;margin-top:12px;background:var(--grid)}
+.tailbar span{height:100%}
+#tb-l,#tb-r{background:var(--lost-soft)}
+#tb-c{background:var(--acc)}
+#tb-l{border-radius:4px 0 0 4px}#tb-r{border-radius:0 4px 4px 0}
+.tailtxt{display:flex;justify-content:space-between;gap:8px;font-size:.82rem;color:var(--ink2);margin-top:4px;font-variant-numeric:tabular-nums}
+.tailtxt b{font-family:var(--f-mono);font-weight:500;color:var(--ink)}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Confidence Belt Builder</h1>
+    <p class="sub">Neyman's construction for one Gaussian measurement with σ = 1, as in Feldman and Cousins (1998). Only μ ≥ 0 is allowed.</p>
+  </header>
+
+  <div class="controls" role="group" aria-label="Construction settings">
+    <div class="group"><span class="lab">Acceptance interval</span>
+      <div class="seg" id="rule">
+        <button type="button" data-v="central" aria-pressed="true">Central, Eq. 2.6</button>
+        <button type="button" data-v="upper" aria-pressed="false">Upper limit, Eq. 2.5</button>
+      </div></div>
+    <div class="group"><span class="lab">Confidence level <span class="sym">α</span></span>
+      <div class="seg" id="cl">
+        <button type="button" data-v="0.6827" aria-pressed="false">68%</button>
+        <button type="button" data-v="0.90" aria-pressed="true">90%</button>
+        <button type="button" data-v="0.95" aria-pressed="false">95%</button>
+      </div></div>
+    <div class="group">
+      <button type="button" class="btn primary" id="play">Build the belt</button>
+      <button type="button" class="btn" id="step">Next μ</button>
+      <button type="button" class="btn" id="fill">Fill in the rest</button>
+      <button type="button" class="btn" id="all">Show complete belt</button>
+      <button type="button" class="btn" id="reset">Clear</button>
+    </div>
+    <div class="group"><label class="lab" for="speed">Speed</label>
+      <input type="range" id="speed" min="0.25" max="2" step="0.25" value="0.75" style="width:110px"><output id="speedv" class="eq">0.75×</output></div>
+  </div>
+
+  <div class="grid">
+    <section class="card" aria-label="Confidence belt">
+      <h2>The belt: μ against x</h2>
+      <p class="hint">Each horizontal segment is the acceptance interval of one value of μ. Drag on the plot to move μ (up and down) or x₀ (sideways, once the belt is built).</p>
+      <canvas id="belt" aria-label="Confidence belt plot"></canvas>
+      <div class="legend">
+        <span><i class="sw" style="background:var(--acc)"></i>acceptance intervals</span>
+        <span><i class="sw" style="background:var(--meas)"></i>measurement x₀ and the confidence interval</span>
+      </div>
+      <div class="slider"><label class="lab sym" for="mu">μ</label><input type="range" id="mu" min="0" max="6" step="0.01" value="2"><output id="muv">2.00</output></div>
+      <div class="slider" id="x0row"><label class="lab sym" for="x0">x₀</label><input type="range" id="x0" min="-3" max="7" step="0.01" value="3"><output id="x0v">3.00</output></div>
+    </section>
+
+    <section class="card" aria-label="Probability density for the current mu">
+      <h2>One value of μ: P(x | μ)</h2>
+      <p class="hint">Fix μ. The pdf says where the measured x falls. The acceptance interval keeps the fraction α of its area.</p>
+      <div class="formula"><math display="block" class="gmath"><mrow><mi>P</mi><mo stretchy="false">(</mo><mi>x</mi><mo stretchy="false">|</mo><mi>μ</mi><mo stretchy="false">)</mo><mo>=</mo><mfrac><mn>1</mn><mrow><mi>σ</mi><msqrt><mrow><mn>2</mn><mi>π</mi></mrow></msqrt></mrow></mfrac><mspace width="0.2em"/><mi>exp</mi><mo>[</mo><mo>−</mo><mfrac><msup><mrow><mo stretchy="false">(</mo><mi>x</mi><mo>−</mo><mi>μ</mi><mo stretchy="false">)</mo></mrow><mn>2</mn></msup><mrow><mn>2</mn><msup><mi>σ</mi><mn>2</mn></msup></mrow></mfrac><mo>]</mo><mo>,</mo><mspace width="1em"/><mi>σ</mi><mo>=</mo><mn>1</mn></mrow></math></div>
+      <canvas id="pdf" aria-label="Probability density of x for the current mu"></canvas>
+      <dl class="readout">
+        <dt>μ</dt><dd id="r-mu">—</dd>
+        <dt>acceptance interval [x₁, x₂]</dt><dd id="r-acc">—</dd>
+        <dt>probability inside</dt><dd id="r-p">—</dd>
+        <dt>left out</dt><dd id="r-out">—</dd>
+      </dl>
+      <div class="result" id="result" aria-live="polite">Press “Build the belt”, or “Next μ” to go one value at a time.</div>
+      <ol class="steps" id="steps">
+        <li data-s="1">Fix a value of μ and draw P(x|μ) along the horizontal line through it.</li>
+        <li data-s="2">Choose an interval of x holding probability α: the acceptance interval.</li>
+        <li data-s="3">Repeat for every μ. The segments form the confidence belt.</li>
+        <li data-s="4">Measure x₀ and draw the vertical line through it.</li>
+        <li data-s="5">The confidence interval is every μ whose segment the line meets.</li>
+      </ol>
+    </section>
+  </div>
+
+  <section class="card isec" id="integral" aria-label="Where the 90 percent comes from">
+    <h2>Where the 90% comes from: integrating P(x | μ)</h2>
+    <p class="hint">Same Gaussian, one fixed μ. The probability that x falls in [x₁, x₂] is the area under the pdf between them. Lower a horizontal line from the top: the x where the curve lies above the line form the window. Stop when its area reaches α. For the Gaussian this gives the central interval, with equal tails.</p>
+    <div class="icontrols">
+      <div class="group"><span class="lab">Confidence level <span class="sym">α</span></span>
+        <div class="seg" id="i-cl" role="group" aria-label="Confidence level for this section">
+          <button type="button" data-v="0.6827" aria-pressed="false">68%</button>
+          <button type="button" data-v="0.90" aria-pressed="true">90%</button>
+          <button type="button" data-v="0.95" aria-pressed="false">95%</button>
+        </div></div>
+      <div class="group">
+        <button type="button" class="btn primary" id="i-grow">1 · Lower the line</button>
+        <button type="button" class="btn" id="i-slide">2 · Slide the window</button>
+        <button type="button" class="btn" id="i-reset">Reset</button>
+      </div>
+      <div class="group"><label class="lab" for="i-speed">Speed</label><input type="range" id="i-speed" min="0.25" max="2" step="0.25" value="0.75" style="width:110px"><output id="i-speedv" class="eq">0.75×</output></div>
+    </div>
+    <div class="igrid">
+      <div>
+        <canvas id="ipdf" aria-label="Probability density with the integration window"></canvas>
+        <canvas id="icdf" aria-label="Cumulative distribution function"></canvas>
+        <div class="slider" id="i-drow"><label class="lab sym" for="i-d">d</label><input type="range" id="i-d" min="0" max="3" step="0.005" value="0"><output id="i-dv">0.00</output></div>
+        <div class="slider" id="i-brow" hidden><label class="lab" for="i-b">left tail</label><input type="range" id="i-b" min="0" max="0.1" step="0.0005" value="0.05"><output id="i-bv">5%</output></div>
+      </div>
+      <div>
+        <div class="formula ifml">
+          <math display="block"><mrow>
+            <msubsup><mo>∫</mo><mrow><msub><mi>x</mi><mn>1</mn></msub></mrow><mrow><msub><mi>x</mi><mn>2</mn></msub></mrow></msubsup>
+            <mi>P</mi><mo stretchy="false">(</mo><mi>x</mi><mo stretchy="false">|</mo><mi>μ</mi><mo stretchy="false">)</mo><mspace width="0.15em"/><mi>d</mi><mi>x</mi>
+            <mo>=</mo><mi>F</mi><mo stretchy="false">(</mo><msub><mi>x</mi><mn>2</mn></msub><mo stretchy="false">)</mo><mo>−</mo><mi>F</mi><mo stretchy="false">(</mo><msub><mi>x</mi><mn>1</mn></msub><mo stretchy="false">)</mo>
+          </mrow></math>
+          <math display="block"><mrow>
+            <mo>=</mo><mn id="i-F2">0.500</mn><mo>−</mo><mn id="i-F1">0.500</mn><mo>=</mo><mn id="i-I" class="ival">0.000</mn>
+          </mrow></math>
+          <p class="fnote">F(x) = ∫ P(x′|μ) dx′ from −∞ to x, the cumulative distribution (lower plot).</p>
+        </div>
+        <dl class="readout">
+          <dt>μ</dt><dd>2.00</dd>
+          <dt>window [x₁, x₂]</dt><dd id="i-win">—</dd>
+          <dt>width x₂ − x₁</dt><dd id="i-wid">—</dd>
+        </dl>
+        <div class="tailbar" aria-hidden="true"><span id="tb-l"></span><span id="tb-c"></span><span id="tb-r"></span></div>
+        <div class="tailtxt"><span>below x₁: <b id="i-tl">50%</b></span><span>inside: <b id="i-tc">0%</b></span><span>above x₂: <b id="i-tr">50%</b></span></div>
+        <div class="result" id="i-msg" aria-live="polite">Press “Lower the line”, or drag d to set the window [μ − d, μ + d] by hand.</div>
+      </div>
+    </div>
+  </section>
+
+  <footer>Built for the interval-estimation unit. Exact Gaussian quantiles; no simulation. The x axis is the measured quantity, the vertical axis the parameter, as in Fig. 1 of G. J. Feldman and R. D. Cousins, Phys. Rev. D 57 (1998) 3873.</footer>
+</div>
+
+<script>
+(()=>{
+// ---------- maths
+function normInv(p){ // Acklam's rational approximation, |error| < 1.2e-9
+  const a=[-39.69683028665376,220.9460984245205,-275.9285104469687,138.3577518672690,-30.66479806614716,2.506628277459239],
+        b=[-54.47609879822406,161.5858368580409,-155.6989798598866,66.80131188771972,-13.28068155288572],
+        c=[-0.007784894002430293,-0.3223964580411365,-2.400758277161838,-2.549732539343734,4.374664141464968,2.938163982698783],
+        d=[0.007784695709041462,0.3224671290700398,2.445134137142996,3.754408661907416];
+  const pl=0.02425; let q,r;
+  if(p<pl){q=Math.sqrt(-2*Math.log(p));return(((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5])/((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1);}
+  if(p>1-pl){q=Math.sqrt(-2*Math.log(1-p));return-(((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5])/((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1);}
+  q=p-0.5;r=q*q;return(((((a[0]*r+a[1])*r+a[2])*r+a[3])*r+a[4])*r+a[5])*q/(((((b[0]*r+b[1])*r+b[2])*r+b[3])*r+b[4])*r+1);
+}
+const pdf=(x,m)=>Math.exp(-0.5*(x-m)*(x-m))/Math.sqrt(2*Math.PI);
+const X=[-3,7], M=[0,6.4];
+const COARSE=[0,0.5,1,1.5,2,2.5,3,3.5,4,4.5,5,5.5,6];
+const S={rule:"central",cl:0.90,mu:2,x0:3,laid:[],built:false,showX0:false};
+// view state used while animating: how much of each element is drawn (1 = complete)
+const V={curve:1,shade:1,seg:null,ghost:false,stage:0};
+function acc(m){ if(S.rule==="central"){const z=normInv(0.5+S.cl/2);return[m-z,m+z];} const z=normInv(S.cl);return[m-z,Infinity]; }
+function ci(x0){
+  if(S.rule==="central"){const z=normInv(0.5+S.cl/2);const lo=Math.max(0,x0-z),hi=x0+z;return hi<0?null:[lo,hi];}
+  const z=normInv(S.cl);const hi=x0+z;return hi<0?null:[0,hi];
+}
+// ---------- drawing helpers
+const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+function setup(cv){const r=cv.getBoundingClientRect(),dpr=window.devicePixelRatio||1;cv.width=Math.round(r.width*dpr);cv.height=Math.round(r.height*dpr);const g=cv.getContext("2d");g.setTransform(dpr,0,0,dpr,0,0);return{g,w:r.width,h:r.height};}
+const fmt=v=>v===Infinity?"+∞":(Math.abs(v)<0.005?"0.00":v.toFixed(2).replace("-","−"));
+const pct=v=>{const t=Math.round(v*10000)/100;return (Number.isInteger(t)?t.toFixed(0):t.toFixed(2).replace(/0$/,""))+"%";};
+function axes(g,w,h,pad,xr,yr,xl,yl,yticks){
+  const C={ink:css("--ink"),ink2:css("--ink2"),grid:css("--grid"),rule:css("--rule")};
+  const sx=v=>pad.l+(v-xr[0])/(xr[1]-xr[0])*(w-pad.l-pad.r), sy=v=>h-pad.b-(v-yr[0])/(yr[1]-yr[0])*(h-pad.t-pad.b);
+  g.font="12px "+css("--f-mono");g.lineWidth=1;
+  for(let v=Math.ceil(xr[0]);v<=xr[1];v++){g.strokeStyle=C.grid;g.beginPath();g.moveTo(sx(v),sy(yr[0]));g.lineTo(sx(v),sy(yr[1]));g.stroke();
+    g.fillStyle=C.ink2;g.textAlign="center";g.textBaseline="top";g.fillText(String(v).replace("-","−"),sx(v),h-pad.b+6);}
+  yticks.forEach(v=>{g.strokeStyle=C.grid;g.beginPath();g.moveTo(sx(xr[0]),sy(v));g.lineTo(sx(xr[1]),sy(v));g.stroke();
+    g.fillStyle=C.ink2;g.textAlign="right";g.textBaseline="middle";g.fillText(String(v),pad.l-8,sy(v));});
+  g.strokeStyle=C.rule;g.beginPath();g.moveTo(pad.l,sy(yr[0]));g.lineTo(w-pad.r,sy(yr[0]));g.moveTo(pad.l,sy(yr[0]));g.lineTo(pad.l,sy(yr[1]));g.stroke();
+  g.font="13px "+css("--f-body");g.fillStyle=C.ink;g.textAlign="center";g.textBaseline="bottom";g.fillText(xl,(pad.l+w-pad.r)/2,h-2);
+  g.save();g.translate(12,(pad.t+h-pad.b)/2);g.rotate(-Math.PI/2);g.textBaseline="middle";g.fillText(yl,0,0);g.restore();
+  return{sx,sy};
+}
+// ---------- left panel: the belt
+const belt=document.getElementById("belt"), pdfc=document.getElementById("pdf");
+let bmap=null;
+function drawBelt(){
+  const {g,w,h}=setup(belt); g.clearRect(0,0,w,h);
+  const pad={l:44,r:12,t:12,b:40};
+  const {sx,sy}=axes(g,w,h,pad,X,M,"measured quantity x","parameter μ",[0,1,2,3,4,5,6]); bmap={sx,sy,pad,w,h};
+  const acol=css("--acc"),faint=css("--faint"),meas=css("--meas"),ink=css("--ink"),ink2=css("--ink2"),soft=css("--acc-soft");
+  const clipR=w-pad.r, iv=S.showX0?ci(S.x0):null, coarse=S.laid.length<=COARSE.length;
+  g.lineCap="butt";
+  S.laid.forEach(m=>{const [a,b]=acc(m);let col=acol,lw=coarse?2.6:1.6;
+    if(S.showX0){const hit=a<=S.x0&&S.x0<=b;col=hit?meas:faint;lw=hit?(coarse?3:2.2):1.3;}
+    g.strokeStyle=col;g.lineWidth=lw;g.beginPath();g.moveTo(Math.max(sx(a),pad.l),sy(m));g.lineTo(Math.min(sx(b),clipR),sy(m));g.stroke();
+    if(coarse&&!S.showX0){g.font="11px "+css("--f-mono");g.fillStyle=ink2;g.textAlign="right";g.textBaseline="middle";g.fillText(m.toFixed(1),Math.max(sx(a),pad.l)-5,sy(m));}});
+  if(S.built){g.strokeStyle=ink;g.lineWidth=1.2;g.setLineDash([5,4]);
+    const z=S.rule==="central"?normInv(0.5+S.cl/2):normInv(S.cl);
+    g.beginPath();g.moveTo(sx(M[0]-z),sy(M[0]));g.lineTo(sx(M[1]-z),sy(M[1]));g.stroke();
+    if(S.rule==="central"){g.beginPath();g.moveTo(sx(M[0]+z),sy(M[0]));g.lineTo(sx(Math.min(M[1]+z,X[1])),sy(Math.min(M[1],X[1]-z)));g.stroke();}
+    g.setLineDash([]);}
+  // the value of mu being worked on
+  if(V.stage>0||(!S.showX0)){
+    const m=S.mu,[a,b]=acc(m),sc=0.9/pdf(0,0);
+    g.strokeStyle=ink2;g.lineWidth=0.8;g.setLineDash([2,3]);g.beginPath();g.moveTo(pad.l,sy(m));g.lineTo(clipR,sy(m));g.stroke();g.setLineDash([]);
+    g.font="12px "+css("--f-mono");g.fillStyle=ink;g.textAlign="left";g.textBaseline="bottom";g.fillText("μ = "+m.toFixed(2),pad.l+6,sy(m)-3);
+    if(V.ghost){
+      g.beginPath();for(let x=X[0];x<=X[1]+1e-9;x+=0.02){const y=m+pdf(x,m)*sc;x===X[0]?g.moveTo(sx(x),sy(y)):g.lineTo(sx(x),sy(y));}
+      g.strokeStyle=ink;g.lineWidth=1.2;g.stroke();
+      const hi=Math.min(b,X[1]);g.beginPath();g.moveTo(sx(Math.max(a,X[0])),sy(m));for(let x=Math.max(a,X[0]);x<=hi;x+=0.02)g.lineTo(sx(x),sy(m+pdf(x,m)*sc));g.lineTo(sx(hi),sy(m));g.closePath();g.fillStyle=soft;g.fill();}
+    const f=V.seg===null?1:V.seg;
+    if(f>0&&(V.seg!==null||!S.built)){const x2=Math.min(sx(b),clipR),x1=Math.max(sx(a),pad.l);g.strokeStyle=acol;g.lineWidth=4.5;g.beginPath();g.moveTo(x1,sy(m));g.lineTo(x1+(x2-x1)*f,sy(m));g.stroke();}
+  }
+  if(S.showX0&&V.stage===0){
+    g.strokeStyle=meas;g.lineWidth=1.4;g.setLineDash([6,4]);g.beginPath();g.moveTo(sx(S.x0),sy(M[0]));g.lineTo(sx(S.x0),sy(M[1]));g.stroke();g.setLineDash([]);
+    g.font="12px "+css("--f-mono");g.fillStyle=meas;g.textAlign="left";g.textBaseline="top";g.fillText("x₀ = "+fmt(S.x0),sx(S.x0)+5,pad.t+2);
+    if(iv){g.strokeStyle=meas;g.lineWidth=6;g.beginPath();g.moveTo(pad.l+3,sy(iv[0]));g.lineTo(pad.l+3,sy(Math.min(iv[1],M[1])));g.stroke();
+      g.lineWidth=1;g.setLineDash([2,3]);[iv[0],iv[1]].forEach(v=>{if(v<=M[1]){g.beginPath();g.moveTo(pad.l,sy(v));g.lineTo(sx(S.x0),sy(v));g.stroke();}});g.setLineDash([]);
+      g.fillStyle=meas;g.textAlign="left";g.textBaseline="bottom";
+      if(iv[1]<=M[1])g.fillText("μ₂ = "+iv[1].toFixed(2),pad.l+10,sy(iv[1])-2);
+      if(iv[0]>0.05)g.fillText("μ₁ = "+iv[0].toFixed(2),pad.l+10,sy(iv[0])-2);}
+  }
+}
+// ---------- right panel: P(x|mu) and its acceptance interval
+function drawPdf(){
+  const {g,w,h}=setup(pdfc); g.clearRect(0,0,w,h);
+  const m=S.mu,[a,b]=acc(m),pad={l:56,r:12,t:22,b:40};
+  const {sx,sy}=axes(g,w,h,pad,X,[0,0.45],"measured quantity x","P(x | μ)",[0,0.1,0.2,0.3,0.4]);
+  const acol=css("--acc-soft"),lost=css("--lost-soft"),ink=css("--ink"),ink2=css("--ink2"),accent=css("--acc"),lostc=css("--lost");
+  const fillSeg=(lo,hi,col)=>{lo=Math.max(lo,X[0]);hi=Math.min(hi,X[1]);if(hi<=lo)return;g.beginPath();g.moveTo(sx(lo),sy(0));for(let x=lo;x<=hi;x+=0.01)g.lineTo(sx(x),sy(pdf(x,m)));g.lineTo(sx(hi),sy(0));g.closePath();g.fillStyle=col;g.fill();};
+  const done=V.shade>=1;
+  if(done){fillSeg(X[0],a,lost); if(isFinite(b))fillSeg(b,X[1],lost);}
+  if(V.shade>0){const hi=Math.min(b,X[1]);fillSeg(a,a+(hi-Math.max(a,X[0]))*V.shade+(Math.max(a,X[0])-a),acol);}
+  const xe=X[0]+(X[1]-X[0])*V.curve;
+  g.beginPath();for(let x=X[0];x<=xe;x+=0.01){x===X[0]?g.moveTo(sx(x),sy(pdf(x,m))):g.lineTo(sx(x),sy(pdf(x,m)));}g.strokeStyle=ink;g.lineWidth=1.6;g.stroke();
+  g.font="12px "+css("--f-mono");g.fillStyle=ink;g.textAlign="left";g.textBaseline="top";g.fillText("μ = "+m.toFixed(2),pad.l+6,4);
+  if(V.shade>0){
+    const hi=Math.min(b,X[1]),xa=sx(Math.max(a,X[0]));
+    g.strokeStyle=accent;g.lineWidth=4.5;g.beginPath();g.moveTo(xa,sy(0)-2);g.lineTo(xa+(sx(hi)-xa)*V.shade,sy(0)-2);g.stroke();
+    g.strokeStyle=accent;g.lineWidth=1.2;g.beginPath();g.moveTo(sx(a),sy(0));g.lineTo(sx(a),sy(pdf(a,m)));g.stroke();
+    g.fillStyle=accent;g.textAlign="center";g.textBaseline="bottom";g.fillText("x₁",sx(a),sy(pdf(a,m))-3);
+    if(done&&isFinite(b)){g.beginPath();g.moveTo(sx(b),sy(0));g.lineTo(sx(b),sy(pdf(b,m)));g.stroke();g.fillText("x₂",sx(b),sy(pdf(b,m))-3);}
+  }
+  if(done){
+    g.font="13px "+css("--f-mono");g.textAlign="center";g.textBaseline="middle";g.fillStyle=accent;g.fillText(pct(S.cl),sx(m),sy(0.13));
+    g.fillStyle=lostc;
+    if(S.rule==="central"){const t=pct((1-S.cl)/2);g.fillText(t,sx(Math.max(a-1.0,X[0]+0.4)),sy(0.07));g.fillText(t,sx(Math.min(b+1.0,X[1]-0.4)),sy(0.07));}
+    else g.fillText(pct(1-S.cl),sx(Math.max(a-1.0,X[0]+0.4)),sy(0.07));
+  }
+  if(S.showX0&&V.stage===0){const meas=css("--meas");g.strokeStyle=meas;g.lineWidth=1.4;g.setLineDash([6,4]);g.beginPath();g.moveTo(sx(S.x0),sy(0));g.lineTo(sx(S.x0),sy(0.45));g.stroke();g.setLineDash([]);}
+}
+// ---------- readouts
+const STEPMSG={1:"Step 1: fix μ and draw P(x|μ).",2:"Step 2: keep the central fraction α of the area. Those x form the acceptance interval [x₁, x₂].",3:"Step 3: copy the acceptance interval to the belt, as a horizontal segment at height μ."};
+function readout(){
+  const [a,b]=acc(S.mu);
+  document.getElementById("r-mu").textContent=S.mu.toFixed(2);
+  document.getElementById("r-acc").textContent=V.shade>=1?"["+fmt(a)+", "+fmt(b)+"]":"—";
+  document.getElementById("r-p").textContent=V.shade>=1?pct(S.cl):"—";
+  document.getElementById("r-out").textContent=V.shade<1?"—":S.rule==="central"?pct((1-S.cl)/2)+" below x₁, the same above x₂":pct(1-S.cl)+" below x₁, nothing above";
+  document.getElementById("muv").textContent=S.mu.toFixed(2);
+  document.getElementById("x0v").textContent=fmt(S.x0);
+  const res=document.getElementById("result");
+  if(V.stage>0){res.className="result";res.textContent=STEPMSG[V.stage].replace("central fraction",S.rule==="central"?"central fraction":"upper fraction");}
+  else if(!S.showX0){res.className="result";res.textContent=S.built?"Belt complete. Move x₀ to read off a confidence interval.":S.laid.length?S.laid.length+" acceptance interval"+(S.laid.length>1?"s":"")+" drawn. Press “Next μ” or “Build the belt” to continue.":"Press “Build the belt”, or “Next μ” to go one value at a time.";}
+  else{const iv=ci(S.x0),L=pct(S.cl)+" C.L.";
+    if(!iv){res.className="result empty";res.textContent="x₀ = "+fmt(S.x0)+": the vertical line meets no acceptance interval. The confidence interval is empty.";}
+    else{res.className="result";res.textContent=S.rule==="upper"?"x₀ = "+fmt(S.x0)+": μ < "+iv[1].toFixed(2)+" at "+L+" (upper limit).":"x₀ = "+fmt(S.x0)+": "+fmt(iv[0])+" ≤ μ ≤ "+iv[1].toFixed(2)+" at "+L+".";}}
+  const st=V.stage>0?V.stage:S.showX0?5:S.built?3:S.laid.length?3:0;
+  document.querySelectorAll("#steps li").forEach(li=>li.classList.toggle("on",+li.dataset.s===st||(st>=4&&+li.dataset.s>=4)));
+}
+function redraw(){drawBelt();drawPdf();readout();}
+// ---------- animation: one value of mu at a time
+const PHASES=[{k:"curve",ms:900,stage:1},{k:"shade",ms:1400,stage:2},{k:"hold",ms:700,stage:2},{k:"seg",ms:1100,stage:3},{k:"rest",ms:600,stage:3}];
+let raf=null, queue=[], running=false, single=false;
+const speed=()=>parseFloat(document.getElementById("speed").value);
+const reduce=()=>window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+function full(){V.curve=1;V.shade=1;V.seg=null;V.ghost=false;V.stage=0;}
+function setBtn(){document.getElementById("play").textContent=running&&!single?"Pause":(S.laid.length&&!S.built?"Continue":(S.built?"Rebuild":"Build the belt"));}
+function nextValues(){return COARSE.filter(m=>!S.laid.some(v=>Math.abs(v-m)<1e-6));}
+function animateOne(m,done){
+  S.mu=m;document.getElementById("mu").value=m;S.showX0=false;
+  let ph=0,t0=null;
+  const tick=t=>{
+    if(t0===null)t0=t;
+    const P=PHASES[ph],dur=reduce()?1:P.ms/speed(),p=Math.min(1,(t-t0)/dur);
+    V.stage=P.stage;V.ghost=ph>=3;
+    V.curve=ph===0?p:1; V.shade=ph<1?0:(ph===1?p:1); V.seg=ph<3?0:(ph===3?p:1);
+    if(ph<3)V.seg=null, V.ghost=false;
+    redraw();
+    if(p>=1){ph++;t0=t;
+      if(ph===4){S.laid.push(m);}
+      if(ph>=PHASES.length){raf=null;full();done();return;}}
+    raf=requestAnimationFrame(tick);};
+  V.curve=0;V.shade=0;V.seg=null;
+  raf=requestAnimationFrame(tick);
+}
+function runQueue(){
+  if(!queue.length){running=false;single=false;if(!nextValues().length){finishBuild();}else{redraw();}setBtn();return;}
+  const m=queue.shift();animateOne(m,()=>{if(single){running=false;single=false;redraw();setBtn();}else runQueue();});
+}
+function finishBuild(){S.built=true;full();S.showX0=true;S.mu=2;document.getElementById("mu").value=2;redraw();setBtn();}
+function stop(){if(raf){cancelAnimationFrame(raf);raf=null;}running=false;single=false;full();setBtn();}
+function play(){
+  if(running&&!single){stop();redraw();return;}
+  if(S.built){S.laid=[];S.built=false;}
+  stop();queue=nextValues();if(!queue.length){finishBuild();return;}
+  running=true;single=false;setBtn();runQueue();
+}
+function step(){
+  if(running)return;
+  if(S.built){S.laid=[];S.built=false;}
+  queue=nextValues().slice(0,1);if(!queue.length){finishBuild();return;}
+  running=true;single=true;setBtn();runQueue();
+}
+function fillRest(){stop();for(let m=0;m<=6.201;m+=0.1){const v=+m.toFixed(2);if(!S.laid.some(u=>Math.abs(u-v)<1e-6))S.laid.push(v);}S.laid.sort((p,q)=>p-q);finishBuild();}
+function showAll(){stop();S.laid=[];fillRest();}
+function reset(){stop();S.laid=[];S.built=false;S.showX0=false;S.mu=0;document.getElementById("mu").value=0;V.curve=1;V.shade=0;redraw();V.shade=1;setBtn();}
+// ---------- controls
+function segGroup(id,key,cast){document.querySelectorAll("#"+id+" button").forEach(b=>b.addEventListener("click",()=>{
+  document.querySelectorAll("#"+id+" button").forEach(o=>o.setAttribute("aria-pressed",o===b?"true":"false"));
+  S[key]=cast(b.dataset.v);redraw();}));}
+segGroup("rule","rule",v=>v); segGroup("cl","cl",parseFloat);
+document.getElementById("play").addEventListener("click",play);
+document.getElementById("step").addEventListener("click",step);
+document.getElementById("fill").addEventListener("click",fillRest);
+document.getElementById("all").addEventListener("click",showAll);
+document.getElementById("reset").addEventListener("click",reset);
+document.getElementById("speed").addEventListener("input",e=>{document.getElementById("speedv").textContent=e.target.value+"×";});
+document.getElementById("mu").addEventListener("input",e=>{if(running)stop();S.mu=parseFloat(e.target.value);if(S.built)S.showX0=false;redraw();});
+document.getElementById("x0").addEventListener("input",e=>{S.x0=parseFloat(e.target.value);if(S.built&&!running)S.showX0=true;redraw();});
+let drag=null;
+belt.addEventListener("pointerdown",e=>{if(running)return;drag={x:e.clientX,y:e.clientY,mode:null};belt.setPointerCapture(e.pointerId);});
+belt.addEventListener("pointermove",e=>{if(!drag||!bmap)return;const r=belt.getBoundingClientRect(),px=e.clientX-r.left,py=e.clientY-r.top;
+  if(!drag.mode){const dx=Math.abs(e.clientX-drag.x),dy=Math.abs(e.clientY-drag.y);if(dx+dy<4)return;drag.mode=(S.built&&dx>dy)?"x":"m";}
+  const {pad,w,h}=bmap;
+  if(drag.mode==="x"){S.x0=Math.min(7,Math.max(-3,X[0]+(px-pad.l)/(w-pad.l-pad.r)*(X[1]-X[0])));document.getElementById("x0").value=S.x0;S.showX0=true;}
+  else{S.mu=Math.min(6,Math.max(0,M[0]+(h-pad.b-py)/(h-pad.t-pad.b)*(M[1]-M[0])));document.getElementById("mu").value=S.mu;if(S.built)S.showX0=false;}
+  redraw();});
+belt.addEventListener("pointerup",()=>{drag=null;});
+new ResizeObserver(()=>redraw()).observe(belt);
+window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change",redraw);
+new MutationObserver(redraw).observe(document.documentElement,{attributes:true,attributeFilter:["data-theme"]});
+document.fonts&&document.fonts.ready.then(redraw);
+// open showing the first value of mu with its acceptance interval, belt empty
+S.mu=0;document.getElementById("mu").value=0;S.x0=3;document.getElementById("x0").value=3;full();redraw();setBtn();
+})();
+</script>
+<script>
+(()=>{
+// ---------- second section: the acceptance probability as an integral (independent of the belt builder above)
+function normInv(p){
+  const a=[-39.69683028665376,220.9460984245205,-275.9285104469687,138.3577518672690,-30.66479806614716,2.506628277459239],
+        b=[-54.47609879822406,161.5858368580409,-155.6989798598866,66.80131188771972,-13.28068155288572],
+        c=[-0.007784894002430293,-0.3223964580411365,-2.400758277161838,-2.549732539343734,4.374664141464968,2.938163982698783],
+        d=[0.007784695709041462,0.3224671290700398,2.445134137142996,3.754408661907416];
+  if(p<=0)return-Infinity; if(p>=1)return Infinity;
+  const pl=0.02425; let q,r;
+  if(p<pl){q=Math.sqrt(-2*Math.log(p));return(((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5])/((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1);}
+  if(p>1-pl){q=Math.sqrt(-2*Math.log(1-p));return-(((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5])/((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1);}
+  q=p-0.5;r=q*q;return(((((a[0]*r+a[1])*r+a[2])*r+a[3])*r+a[4])*r+a[5])*q/(((((b[0]*r+b[1])*r+b[2])*r+b[3])*r+b[4])*r+1);
+}
+function erf(x){ // W. J. Cody-quality via series / continued fraction is overkill here; this is A&S 7.1.26 refined by one Newton step on normInv
+  const s=Math.sign(x);x=Math.abs(x);const t=1/(1+0.3275911*x);
+  const y=1-(((((1.061405429*t-1.453152027)*t+1.421413741)*t-0.284496736)*t+0.254829592)*t)*Math.exp(-x*x);return s*y;}
+function Phi(z){ if(z===Infinity)return 1; if(z===-Infinity)return 0;
+  let p=0.5*(1+erf(z/Math.SQRT2));
+  // one Newton refinement using the accurate inverse: p <- p + (z - normInv(p))*phi(z)
+  if(p>1e-12&&p<1-1e-12){p+= (z-normInv(p))*Math.exp(-0.5*z*z)/Math.sqrt(2*Math.PI);} return Math.min(1,Math.max(0,p));}
+const MU=2, XR=[MU-4,MU+4];
+const pdf=x=>Math.exp(-0.5*(x-MU)*(x-MU))/Math.sqrt(2*Math.PI);
+const T={cl:0.90,mode:"grow",d:0,beta:0.05,k:0.44};
+const PEAK=1/Math.sqrt(2*Math.PI), dOfK=k=>k>=PEAK?0:Math.sqrt(-2*Math.log(k/PEAK));
+const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+function setup(cv){const r=cv.getBoundingClientRect(),dpr=window.devicePixelRatio||1;cv.width=Math.round(r.width*dpr);cv.height=Math.round(r.height*dpr);const g=cv.getContext("2d");g.setTransform(dpr,0,0,dpr,0,0);return{g,w:r.width,h:r.height};}
+const neg=s=>s.replace(/-/g,"−");
+const f2=v=>v===Infinity?"+∞":v===-Infinity?"−∞":neg(v.toFixed(2));
+const pc=v=>{const t=v*100;return (Math.abs(t-Math.round(t))<0.05?Math.round(t).toFixed(0):t.toFixed(1))+"%";};
+function axes(g,w,h,pad,xr,yr,xl,yl,yticks){
+  const ink=css("--ink"),ink2=css("--ink2"),grid=css("--grid"),rule=css("--rule");
+  const sx=v=>pad.l+(v-xr[0])/(xr[1]-xr[0])*(w-pad.l-pad.r), sy=v=>h-pad.b-(v-yr[0])/(yr[1]-yr[0])*(h-pad.t-pad.b);
+  g.font="12px "+css("--f-mono");g.lineWidth=1;
+  for(let v=Math.ceil(xr[0]);v<=xr[1];v++){g.strokeStyle=grid;g.beginPath();g.moveTo(sx(v),sy(yr[0]));g.lineTo(sx(v),sy(yr[1]));g.stroke();
+    g.fillStyle=ink2;g.textAlign="center";g.textBaseline="top";g.fillText(neg(String(v)),sx(v),h-pad.b+6);}
+  yticks.forEach(v=>{g.strokeStyle=grid;g.beginPath();g.moveTo(sx(xr[0]),sy(v));g.lineTo(sx(xr[1]),sy(v));g.stroke();
+    g.fillStyle=ink2;g.textAlign="right";g.textBaseline="middle";g.fillText(String(v),pad.l-8,sy(v));});
+  g.strokeStyle=rule;g.beginPath();g.moveTo(pad.l,sy(yr[0]));g.lineTo(w-pad.r,sy(yr[0]));g.moveTo(pad.l,sy(yr[0]));g.lineTo(pad.l,sy(yr[1]));g.stroke();
+  g.font="13px "+css("--f-body");g.fillStyle=ink;g.textAlign="center";g.textBaseline="bottom";if(xl)g.fillText(xl,(pad.l+w-pad.r)/2,h-2);
+  g.save();g.translate(12,(pad.t+h-pad.b)/2);g.rotate(-Math.PI/2);g.textBaseline="middle";g.fillText(yl,0,0);g.restore();
+  return{sx,sy};
+}
+// the current window [x1,x2]
+function win(){
+  if(T.mode==="grow")return[MU-T.d,MU+T.d];
+  const a=T.beta,b=a+T.cl;return[a<=4e-4?-Infinity:MU+normInv(a),b>=1-4e-4?Infinity:MU+normInv(b)];
+}
+const ipdf=document.getElementById("ipdf"), icdf=document.getElementById("icdf");
+function drawPdf(){
+  const {g,w,h}=setup(ipdf);g.clearRect(0,0,w,h);
+  const pad={l:56,r:12,t:18,b:40},[x1,x2]=win();
+  const {sx,sy}=axes(g,w,h,pad,XR,[0,0.45],"measured quantity x","P(x | μ)",[0,0.1,0.2,0.3,0.4]);
+  const soft=css("--acc-soft"),lost=css("--lost-soft"),acc=css("--acc"),lostc=css("--lost"),ink=css("--ink"),ink2=css("--ink2");
+  const fill=(lo,hi,col)=>{lo=Math.max(lo,XR[0]);hi=Math.min(hi,XR[1]);if(hi<=lo)return;g.beginPath();g.moveTo(sx(lo),sy(0));for(let x=lo;x<hi;x+=0.01)g.lineTo(sx(x),sy(pdf(x)));g.lineTo(sx(hi),sy(pdf(hi)));g.lineTo(sx(hi),sy(0));g.closePath();g.fillStyle=col;g.fill();};
+  fill(XR[0],x1,lost);fill(x2,XR[1],lost);fill(x1,x2,soft);
+  g.beginPath();for(let x=XR[0];x<=XR[1]+1e-9;x+=0.01){x===XR[0]?g.moveTo(sx(x),sy(pdf(x))):g.lineTo(sx(x),sy(pdf(x)));}g.strokeStyle=ink;g.lineWidth=1.6;g.stroke();
+  // centre line at mu
+  g.strokeStyle=ink2;g.lineWidth=0.8;g.setLineDash([2,3]);g.beginPath();g.moveTo(sx(MU),sy(0));g.lineTo(sx(MU),sy(0.43));g.stroke();g.setLineDash([]);
+  g.font="12px "+css("--f-mono");g.fillStyle=ink2;g.textAlign="left";g.textBaseline="top";g.fillText("μ = "+MU.toFixed(2),sx(MU)+4,pad.t-14);
+  // edges
+  g.fillStyle=acc;g.strokeStyle=acc;g.lineWidth=1.4;g.textAlign="center";g.textBaseline="bottom";
+  [[x1,"x₁"],[x2,"x₂"]].forEach(([v,l])=>{if(isFinite(v)&&v>XR[0]&&v<XR[1]){g.beginPath();g.moveTo(sx(v),sy(0));g.lineTo(sx(v),sy(pdf(v)));g.stroke();g.fillText(l,sx(v),sy(pdf(v))-3);}});
+  if(T.mode==="grow"){ // the horizontal line and where it cuts the curve
+    const yk=sy(T.k),lc=css("--meas");
+    g.strokeStyle=lc;g.lineWidth=1.8;g.beginPath();g.moveTo(pad.l,yk);g.lineTo(w-pad.r,yk);g.stroke();
+    g.font="12px "+css("--f-mono");g.fillStyle=lc;g.textAlign="right";g.textBaseline="bottom";
+    g.fillText("line at P = "+T.k.toFixed(3),w-pad.r-4,yk-3);
+    if(T.d>0){g.beginPath();[x1,x2].forEach(v=>{g.moveTo(sx(v)+4,yk);g.arc(sx(v),yk,4,0,2*Math.PI);});g.fill();}
+  }
+  // areas
+  const pL=Phi(x1-MU),pR=1-Phi(x2-MU),pC=1-pL-pR;
+  g.font="13px "+css("--f-mono");g.textBaseline="middle";g.textAlign="center";
+  g.fillStyle=acc;g.fillText(pc(pC),sx(MU),sy(0.15));
+  g.fillStyle=lostc;
+  // tail labels sit just above the curve, outside the window
+  // big tails: label inside the shaded tail; small tails: just above the curve, further out
+  const tailLab=(edge,side,p)=>{if(p<=0.0005||!isFinite(edge))return;
+    const xin=edge-side*0.4;
+    if(pdf(xin)*0.5>0.05){g.fillText(pc(p),sx(xin),sy(pdf(xin)*0.5));return;}
+    const xo=side>0?Math.max(Math.min(edge-0.8,MU-1.3),XR[0]+0.45):Math.min(Math.max(edge+0.8,MU+1.3),XR[1]-0.45);
+    g.fillText(pc(p),sx(xo),sy(pdf(xo)+0.035));};
+  tailLab(x1,1,pL);tailLab(x2,-1,pR);
+  if(pL>0.0005&&!isFinite(x1))g.fillText(pc(pL),sx(XR[0]+0.6),sy(0.03));
+  if(pR>0.0005&&!isFinite(x2))g.fillText(pc(pR),sx(XR[1]-0.6),sy(0.03));
+}
+function drawCdf(){
+  const {g,w,h}=setup(icdf);g.clearRect(0,0,w,h);
+  const pad={l:56,r:12,t:10,b:40},[x1,x2]=win();
+  const {sx,sy}=axes(g,w,h,pad,XR,[0,1],"measured quantity x","F(x)",[0,0.5,1]);
+  const acc=css("--acc"),lostc=css("--lost"),ink=css("--ink"),soft=css("--acc-soft");
+  g.beginPath();for(let x=XR[0];x<=XR[1]+1e-9;x+=0.02){const y=Phi(x-MU);x===XR[0]?g.moveTo(sx(x),sy(y)):g.lineTo(sx(x),sy(y));}g.strokeStyle=ink;g.lineWidth=1.6;g.stroke();
+  const F1=Phi(x1-MU),F2=Phi(x2-MU);
+  // band between F1 and F2 on the y axis = the integral
+  g.strokeStyle=acc;g.lineWidth=6;g.beginPath();g.moveTo(pad.l+3,sy(F1));g.lineTo(pad.l+3,sy(F2));g.stroke();
+  g.lineWidth=1;g.setLineDash([4,3]);g.strokeStyle=acc;
+  [[x1,F1],[x2,F2]].forEach(([x,F])=>{const xc=Math.min(Math.max(x,XR[0]),XR[1]);g.beginPath();g.moveTo(pad.l,sy(F));g.lineTo(sx(xc),sy(F));if(isFinite(x)&&x>XR[0]&&x<XR[1])g.lineTo(sx(xc),sy(0));g.stroke();});
+  g.setLineDash([]);
+  g.font="11px "+css("--f-mono");g.fillStyle=acc;g.textAlign="left";g.textBaseline="bottom";
+  const wide=sy(F1)-sy(F2)>34;
+  g.textBaseline=wide?"top":"bottom";g.fillText("F(x₂) = "+F2.toFixed(3),pad.l+12,sy(F2)+(wide?3:-2));
+  g.textBaseline=wide?"bottom":"top";g.fillText("F(x₁) = "+F1.toFixed(3),pad.l+12,sy(F1)+(wide?-3:2));
+  if(wide){g.font="12px "+css("--f-mono");g.textBaseline="middle";g.fillText("∫ = "+(F2-F1).toFixed(3),pad.l+12,(sy(F1)+sy(F2))/2);}
+}
+function readout(){
+  const [x1,x2]=win(),F1=Phi(x1-MU),F2=Phi(x2-MU),I=F2-F1,pL=F1,pR=1-F2;
+  const set=(id,v)=>document.getElementById(id).textContent=v;
+  set("i-F2",F2.toFixed(3));set("i-F1",F1.toFixed(3));set("i-I",I.toFixed(3));
+  set("i-win",(isFinite(x1)?"[":"(")+f2(x1)+", "+f2(x2)+(isFinite(x2)?"]":")"));set("i-wid",isFinite(x2)?(x2-x1).toFixed(2):"∞");
+  set("i-tl",pc(pL));set("i-tc",pc(I));set("i-tr",pc(pR));
+  document.getElementById("tb-l").style.width=(pL*100)+"%";document.getElementById("tb-c").style.width=(I*100)+"%";document.getElementById("tb-r").style.width=(pR*100)+"%";
+  set("i-dv",T.d.toFixed(2));set("i-bv",pc(T.beta));
+  const z=normInv(0.5+T.cl/2),A=pc(T.cl),half=pc((1-T.cl)/2),m=document.getElementById("i-msg");
+  if(T.mode==="grow"){
+    const kT=PEAK*Math.exp(-0.5*z*z);
+    if(T.d<0.005)m.textContent="The line starts above the peak of P(x|μ): no x lies above it, so the area is 0. Lower it slowly.";
+    else if(Math.abs(T.d-z)<0.006)m.textContent="Stop here. With the line at P = "+kT.toFixed(3)+" the window [μ − "+z.toFixed(2)+", μ + "+z.toFixed(2)+"] holds "+A+", and each tail "+half+". This is the central acceptance interval.";
+    else if(T.d<z)m.textContent="Line at P = "+T.k.toFixed(3)+": the curve is above it for x in ["+f2(x1)+", "+f2(x2)+"], an area of "+pc(I)+". Not yet "+A+"; keep lowering.";
+    else m.textContent="Line at P = "+T.k.toFixed(3)+": the window holds "+pc(I)+", more than "+A+". The line should stop at P = "+kT.toFixed(3)+".";
+  } else {
+    const c=(1-T.cl)/2,lab=Math.abs(T.beta-c)<0.0008?"Equal tails: the central interval (Eq. 2.6), the choice the belt above uses.":
+      T.beta>=1-T.cl-0.0004?"All "+pc(1-T.cl)+" below x₁, nothing above: the upper-limit acceptance interval (Eq. 2.5).":
+      T.beta<=0.0004?"All "+pc(1-T.cl)+" above x₂, nothing below: the window starts at −∞.":
+      "Still exactly "+A+" inside, but the tails are unequal ("+pc(T.beta)+" below, "+pc(1-T.cl-T.beta)+" above).";
+    m.textContent=lab+" Every position holds "+A+"; choosing one is the ordering rule.";
+  }
+}
+function redraw(){drawPdf();drawCdf();readout();}
+// ---------- animation
+let raf=null;const spd=()=>parseFloat(document.getElementById("i-speed").value);
+const reduce=()=>window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+function stop(){if(raf){cancelAnimationFrame(raf);raf=null;}document.getElementById("i-grow").textContent="1 · Lower the line";document.getElementById("i-slide").textContent="2 · Slide the window";}
+function setMode(m){T.mode=m;document.getElementById("i-drow").hidden=m!=="grow";document.getElementById("i-brow").hidden=m!=="slide";
+  const bi=document.getElementById("i-b");bi.max=(1-T.cl).toFixed(4);}
+// keyframes: list of [value, ms to reach it]; holds are repeated values
+function run(btn,keys,apply,linear){
+  stop();const b=document.getElementById(btn);b.textContent="Pause";
+  let k=0,t0=null,from=keys[0][0];apply(from);redraw();
+  const tick=t=>{if(t0===null)t0=t;const [to,ms]=keys[k+1],dur=ms/spd(),p=Math.min(1,(t-t0)/dur);
+    const e=linear?p:(p<0.5?2*p*p:1-2*(1-p)*(1-p)); apply(from+(to-from)*e);redraw();
+    if(p>=1){k++;from=to;t0=t;if(k>=keys.length-1){raf=null;stop();redraw();return;}}
+    raf=requestAnimationFrame(tick);};
+  raf=requestAnimationFrame(tick);
+}
+function grow(){
+  if(raf&&document.getElementById("i-grow").textContent==="Pause"){stop();return;}
+  setMode("grow");const z=normInv(0.5+T.cl/2),kT=PEAK*Math.exp(-0.5*z*z),k68=PEAK*Math.exp(-0.5);
+  // the line comes down at a steady pace; it waits above the peak, at 68.3% (if passed on the way) and at the target
+  const kA=Math.max(kT+0.03,kT*1.25);
+  const keys=[[0.44,0],[0.44,2000],[PEAK,4000]];
+  if(T.cl>0.7){keys.push([k68,16000],[k68,4000]);keys.push([kA,10000],[kT,9000],[kT,800]);}
+  else keys.push([kA,14000],[kT,9000],[kT,800]);
+  run("i-grow",keys,v=>{T.k=v;T.d=dOfK(v);document.getElementById("i-d").value=T.d;},true);
+}
+function slide(){
+  if(raf&&document.getElementById("i-slide").textContent==="Pause"){stop();return;}
+  setMode("slide");const c=(1-T.cl)/2,e=1-T.cl;
+  run("i-slide",[[c,0],[c,1400],[e,3500],[e,1800],[0,6000],[0,1800],[c,3500],[c,400]],v=>{T.beta=v;document.getElementById("i-b").value=v;});
+}
+function reset(){stop();setMode("grow");T.d=0;T.k=0.44;document.getElementById("i-d").value=0;T.beta=(1-T.cl)/2;redraw();}
+document.getElementById("i-grow").addEventListener("click",grow);
+document.getElementById("i-slide").addEventListener("click",slide);
+document.getElementById("i-reset").addEventListener("click",reset);
+document.getElementById("i-speed").addEventListener("input",e=>{document.getElementById("i-speedv").textContent=e.target.value+"×";});
+document.getElementById("i-d").addEventListener("input",e=>{stop();setMode("grow");T.d=parseFloat(e.target.value);T.k=T.d>0?pdf(MU+T.d):0.44;redraw();});
+document.getElementById("i-b").addEventListener("input",e=>{stop();setMode("slide");T.beta=parseFloat(e.target.value);redraw();});
+document.querySelectorAll("#i-cl button").forEach(b=>b.addEventListener("click",()=>{
+  document.querySelectorAll("#i-cl button").forEach(o=>o.setAttribute("aria-pressed",o===b?"true":"false"));
+  stop();T.cl=parseFloat(b.dataset.v);T.beta=(1-T.cl)/2;document.getElementById("i-b").value=T.beta;setMode(T.mode);redraw();}));
+new ResizeObserver(()=>redraw()).observe(ipdf);
+window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change",redraw);
+new MutationObserver(redraw).observe(document.documentElement,{attributes:true,attributeFilter:["data-theme"]});
+document.fonts&&document.fonts.ready.then(redraw);
+setMode("grow");redraw();
+})();
+</script>
+
+</html>
